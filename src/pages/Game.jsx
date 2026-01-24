@@ -58,7 +58,7 @@ export default function Game() {
         sfxRef.current = createSFX();
     }, []);
 
-    const initGame = useCallback(() => {
+    const initGame = useCallback((classData) => {
         const canvas = canvasRef.current;
         if (!canvas) return;
         
@@ -67,8 +67,6 @@ export default function Game() {
         const rect = canvas.getBoundingClientRect();
         canvas.width = rect.width || window.innerWidth;
         canvas.height = rect.height || window.innerHeight;
-
-        const classData = selectedClass || CLASSES[0];
         
         gameStateRef.current = {
             ctx,
@@ -1839,14 +1837,14 @@ export default function Game() {
         }
     }, [isPaused, gameOver, shootBullet, spawnEnemy, createParticles, createDamageNumber, triggerScreenShake, generateUpgrades]);
 
-    const startGame = useCallback(() => {
+    const startGame = useCallback((classData) => {
         setGameStarted(true);
         setGameOver(false);
         setIsPaused(false);
         
         // Wait for canvas to be visible before initializing
         setTimeout(() => {
-            initGame();
+            initGame(classData);
             const gs = gameStateRef.current;
             if (gs) {
                 gs.startTime = Date.now();
@@ -1869,7 +1867,7 @@ export default function Game() {
     const handleClassSelect = useCallback((classData) => {
         setSelectedClass(classData);
         setClassSelected(true);
-        startGame();
+        startGame(classData);
     }, [startGame]);
 
     useEffect(() => {
