@@ -243,6 +243,150 @@ export const GEAR = {
             p.overheal = 200;
             p.overhealDecayStart = Date.now();
         }
+    },
+
+    // Offensive upgrades
+    double_shot: {
+        name: 'Double Shot',
+        icon: '🔱',
+        desc: '+1 Projectile per shot',
+        apply: (p) => p.multishot = (p.multishot || 1) + 1
+    },
+    berserker: {
+        name: 'Berserker Rage',
+        icon: '😤',
+        desc: '+50% damage when below 50% HP',
+        apply: (p) => p.hasBerserker = true
+    },
+    executioner: {
+        name: 'Executioner',
+        icon: '🪓',
+        desc: '+100% damage to enemies below 25% HP',
+        apply: (p) => p.hasExecutioner = true
+    },
+    poison_rounds: {
+        name: 'Poison Rounds',
+        icon: '☠️',
+        desc: 'Enemies take 3 DPS for 3 seconds',
+        apply: (p) => p.hasPoisonRounds = true
+    },
+    freeze_rounds: {
+        name: 'Cryo Rounds',
+        icon: '❄️',
+        desc: 'Slow enemies by 50% for 2 seconds',
+        apply: (p) => p.hasFreezeRounds = true
+    },
+    armor_pierce: {
+        name: 'Armor Piercing',
+        icon: '🗡️',
+        desc: '+30% damage to tanky enemies',
+        apply: (p) => p.hasArmorPierce = true
+    },
+    homing: {
+        name: 'Homing Rounds',
+        icon: '🎯',
+        desc: 'Bullets curve toward enemies',
+        apply: (p) => p.hasHoming = true
+    },
+    chain_lightning: {
+        name: 'Chain Lightning',
+        icon: '⚡',
+        desc: 'Kills chain to nearby enemies',
+        apply: (p) => p.hasChainLightning = true
+    },
+
+    // Defensive upgrades
+    second_wind: {
+        name: 'Second Wind',
+        icon: '💨',
+        desc: 'Revive once at 50% HP',
+        apply: (p) => p.hasSecondWind = true
+    },
+    adrenaline: {
+        name: 'Adrenaline Rush',
+        icon: '💉',
+        desc: '+3 HP on kill',
+        apply: (p) => p.adrenalineHeal = (p.adrenalineHeal || 0) + 3
+    },
+    evasion: {
+        name: 'Evasion Matrix',
+        icon: '🌀',
+        desc: '15% chance to dodge attacks',
+        apply: (p) => p.evasionChance = (p.evasionChance || 0) + 0.15
+    },
+    thorns: {
+        name: 'Thorns Aura',
+        icon: '🌹',
+        desc: 'Reflect 50% melee damage',
+        apply: (p) => p.thornsDamage = (p.thornsDamage || 0) + 0.5
+    },
+    fortress: {
+        name: 'Fortress',
+        icon: '🏰',
+        desc: '-25% damage taken',
+        apply: (p) => p.damageReduction = (p.damageReduction || 0) + 0.25
+    },
+    quick_shield: {
+        name: 'Quick Shield',
+        icon: '⚡',
+        desc: 'Shield regens 5/sec after 2s',
+        apply: (p) => p.shieldRegen = (p.shieldRegen || 0) + 5
+    },
+    absorb_shield: {
+        name: 'Absorb Shield',
+        icon: '🔮',
+        desc: '10% damage absorbed as shield',
+        apply: (p) => p.damageToShield = (p.damageToShield || 0) + 0.1
+    },
+
+    // Utility upgrades
+    magnet: {
+        name: 'Magnetic Field',
+        icon: '🧲',
+        desc: 'Attract score pickups',
+        apply: (p) => p.hasMagnet = true
+    },
+    xp_boost: {
+        name: 'Score Multiplier',
+        icon: '✨',
+        desc: '+50% score from kills',
+        apply: (p) => p.scoreMultiplier = (p.scoreMultiplier || 1) * 1.5
+    },
+    time_slow: {
+        name: 'Chronosphere',
+        icon: '⏰',
+        desc: 'Press F: Slow time 50% (5s)',
+        apply: (p) => p.hasTimeSlow = true
+    },
+    drone: {
+        name: 'Attack Drone',
+        icon: '🛸',
+        desc: 'Orbiting drone shoots enemies',
+        apply: (p) => p.droneCount = (p.droneCount || 0) + 1
+    },
+    orbital: {
+        name: 'Orbital Strike',
+        icon: '🛰️',
+        desc: 'Press G: Call orbital bombardment',
+        apply: (p) => p.hasOrbital = true
+    },
+    gravity_well: {
+        name: 'Gravity Well',
+        icon: '🕳️',
+        desc: 'Press R: Pull enemies together',
+        apply: (p) => p.hasGravityWell = true
+    },
+    shockwave: {
+        name: 'Shockwave',
+        icon: '💥',
+        desc: 'Press E: Knockback pulse',
+        apply: (p) => p.hasShockwave = true
+    },
+    overcharge: {
+        name: 'Overcharge',
+        icon: '🔋',
+        desc: 'Press Q: 3x damage for 5s (20s CD)',
+        apply: (p) => p.hasOvercharge = true
     }
 };
 
@@ -273,7 +417,8 @@ export function createGearUpgrade(gearKey) {
 export function shootWeapon(weapon, player, targetX, targetY, createBullet) {
     const weaponData = WEAPONS[weapon];
     const baseAngle = Math.atan2(targetY - player.y, targetX - player.x);
-    
+    const multishot = player.multishot || 1;
+
     // Burst fire handling
     if (weaponData.burst) {
         for (let burst = 0; burst < weaponData.projectiles; burst++) {
@@ -297,42 +442,47 @@ export function shootWeapon(weapon, player, targetX, targetY, createBullet) {
         return;
     }
     
-    for (let i = 0; i < weaponData.projectiles; i++) {
-        let angle = baseAngle;
-        
-        if (weaponData.projectiles > 1) {
-            const spreadRange = weaponData.spread;
-            angle += (i - (weaponData.projectiles - 1) / 2) * (spreadRange / (weaponData.projectiles - 1));
-        } else if (weaponData.spread > 0) {
-            angle += (Math.random() - 0.5) * weaponData.spread;
+    // Fire main projectiles + multishot extra projectiles
+    for (let shot = 0; shot < multishot; shot++) {
+        const multishotSpread = shot > 0 ? (shot * 0.15) * (shot % 2 === 0 ? 1 : -1) : 0;
+
+        for (let i = 0; i < weaponData.projectiles; i++) {
+            let angle = baseAngle + multishotSpread;
+
+            if (weaponData.projectiles > 1) {
+                const spreadRange = weaponData.spread;
+                angle += (i - (weaponData.projectiles - 1) / 2) * (spreadRange / (weaponData.projectiles - 1));
+            } else if (weaponData.spread > 0) {
+                angle += (Math.random() - 0.5) * weaponData.spread;
+            }
+
+            const startX = player.x + Math.cos(angle) * 25;
+            const startY = player.y + Math.sin(angle) * 25;
+
+            const bullet = {
+                x: startX,
+                y: startY,
+                vx: Math.cos(angle) * weaponData.speed,
+                vy: Math.sin(angle) * weaponData.speed,
+                damage: player.damage * weaponData.damage,
+                piercing: weaponData.piercing + player.piercing,
+                color: weaponData.color,
+                size: weapon === 'rocket' ? 12 : (weapon === 'sniper' ? 10 : 8),
+                explosive: weaponData.explosive,
+                explosionRadius: weaponData.explosionRadius,
+                flame: weaponData.flame,
+                lifetime: weaponData.lifetime,
+                lightning: weaponData.lightning,
+                chainRange: weaponData.chainRange,
+                chains: weaponData.chains,
+                grenade: weaponData.grenade,
+                bounces: weaponData.bounces,
+                fuseTime: weaponData.fuseTime,
+                spawnTime: Date.now(),
+                sniper: weaponData.sniper
+            };
+
+            createBullet(bullet);
         }
-        
-        const startX = player.x + Math.cos(angle) * 25;
-        const startY = player.y + Math.sin(angle) * 25;
-        
-        const bullet = {
-            x: startX,
-            y: startY,
-            vx: Math.cos(angle) * weaponData.speed,
-            vy: Math.sin(angle) * weaponData.speed,
-            damage: player.damage * weaponData.damage,
-            piercing: weaponData.piercing + player.piercing,
-            color: weaponData.color,
-            size: weapon === 'rocket' ? 12 : (weapon === 'sniper' ? 10 : 8),
-            explosive: weaponData.explosive,
-            explosionRadius: weaponData.explosionRadius,
-            flame: weaponData.flame,
-            lifetime: weaponData.lifetime,
-            lightning: weaponData.lightning,
-            chainRange: weaponData.chainRange,
-            chains: weaponData.chains,
-            grenade: weaponData.grenade,
-            bounces: weaponData.bounces,
-            fuseTime: weaponData.fuseTime,
-            spawnTime: Date.now(),
-            sniper: weaponData.sniper
-        };
-        
-        createBullet(bullet);
     }
 }

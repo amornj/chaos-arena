@@ -492,7 +492,73 @@ export default function Game() {
                 createParticles(player.x, player.y, '#00ff00', 20, 8);
             }
         }
-        
+
+        // Time Slow (F key)
+        if (keys.f && player.hasTimeSlow) {
+            if (!player.lastTimeSlow || now - player.lastTimeSlow > 25000) {
+                player.lastTimeSlow = now;
+                gs.timeSlowUntil = now + 5000;
+                createParticles(player.x, player.y, '#8888ff', 30, 15);
+                sfxRef.current?.upgrade();
+            }
+        }
+
+        // Orbital Strike (G key)
+        if (keys.g && player.hasOrbital) {
+            if (!player.lastOrbital || now - player.lastOrbital > 30000) {
+                player.lastOrbital = now;
+                // Create orbital markers
+                for (let i = 0; i < 5; i++) {
+                    const ox = mouse.x + (Math.random() - 0.5) * 200;
+                    const oy = mouse.y + (Math.random() - 0.5) * 200;
+                    gs.orbitalStrikes = gs.orbitalStrikes || [];
+                    gs.orbitalStrikes.push({ x: ox, y: oy, delay: i * 200, startTime: now });
+                }
+                sfxRef.current?.upgrade();
+            }
+        }
+
+        // Gravity Well (R key)
+        if (keys.r && player.hasGravityWell) {
+            if (!player.lastGravity || now - player.lastGravity > 15000) {
+                player.lastGravity = now;
+                gs.gravityWell = { x: mouse.x, y: mouse.y, endTime: now + 3000 };
+                createParticles(mouse.x, mouse.y, '#8844ff', 30, 15);
+                sfxRef.current?.upgrade();
+            }
+        }
+
+        // Shockwave (E key)
+        if (keys.e && player.hasShockwave) {
+            if (!player.lastShockwave || now - player.lastShockwave > 8000) {
+                player.lastShockwave = now;
+                enemies.forEach(e => {
+                    const dist = Math.hypot(e.x - player.x, e.y - player.y);
+                    if (dist < 250) {
+                        const angle = Math.atan2(e.y - player.y, e.x - player.x);
+                        const knockback = 200 * (1 - dist / 250);
+                        e.x += Math.cos(angle) * knockback;
+                        e.y += Math.sin(angle) * knockback;
+                        e.health -= player.damage * 2;
+                        e.hitFlash = 5;
+                    }
+                });
+                createParticles(player.x, player.y, '#ffaa00', 50, 20);
+                triggerScreenShake(0.8);
+                sfxRef.current?.upgrade();
+            }
+        }
+
+        // Overcharge (Q key)
+        if (keys.q && player.hasOvercharge) {
+            if (!player.lastOvercharge || now - player.lastOvercharge > 20000) {
+                player.lastOvercharge = now;
+                player.overchargeUntil = now + 5000;
+                createParticles(player.x, player.y, '#ffff00', 40, 15);
+                sfxRef.current?.upgrade();
+            }
+        }
+
         const speedMultiplier = player.dashActive ? 4 : (player.isSprinting ? 1.5 : 1);
         
         if (dx !== 0 || dy !== 0) {
@@ -522,6 +588,120 @@ export default function Game() {
             } else {
                 player.overheal = 0;
             }
+        }
+
+        // Shield regeneration
+        if (player.shieldRegen > 0 && player.maxShield > 0) {
+            if (!player.lastShieldHit || now - player.lastShieldHit > 2000) {
+                if (!player.lastShieldRegen || now - player.lastShieldRegen > 1000) {
+                    player.lastShieldRegen = now;
+                    player.shield = Math.min(player.maxShield, player.shield + player.shieldRegen);
+                }
+            }
+        }
+
+        // Time slow effect
+        const timeSlowActive = gs.timeSlowUntil && now < gs.timeSlowUntil;
+        const timeMultiplier = timeSlowActive ? 0.5 : 1;
+
+        // Overcharge active
+        const overchargeActive = player.overchargeUntil && now < player.overchargeUntil;
+
+        // Process orbital strikes
+        if (gs.orbitalStrikes) {
+            for (let i = gs.orbitalStrikes.length - 1; i >= 0; i--) {
+                const strike = gs.orbitalStrikes[i];
+                if (now - strike.startTime > strike.delay) {
+                    // Create explosion
+                    createParticles(strike.x, strike.y, '#ff4400', 30, 15);
+                    triggerScreenShake(0.5);
+
+                    // Damage enemies
+                    enemies.forEach(e => {
+                        const dist = Math.hypot(e.x - strike.x, e.y - strike.y);
+                        if (dist < 100) {
+                            e.health -= player.damage * 5;
+                            e.hitFlash = 5;
+                            createDamageNumber(e.x, e.y - e.size, player.damage * 5, true);
+                        }
+                    });
+
+                    gs.orbitalStrikes.splice(i, 1);
+                }
+            }
+        }
+
+        // Process gravity well
+        if (gs.gravityWell && now < gs.gravityWell.endTime) {
+            const gw = gs.gravityWell;
+            enemies.forEach(e => {
+                const dist = Math.hypot(e.x - gw.x, e.y - gw.y);
+                if (dist < 300 && dist > 20) {
+                    const angle = Math.atan2(gw.y - e.y, gw.x - e.x);
+                    const pullStrength = 3 * (1 - dist / 300);
+                    e.x += Math.cos(angle) * pullStrength;
+                    e.y += Math.sin(angle) * pullStrength;
+                }
+            });
+            // Draw gravity well
+            ctx.globalAlpha = 0.3;
+            ctx.fillStyle = '#8844ff';
+            ctx.beginPath();
+            ctx.arc(gw.x, gw.y, 300 * (1 - (now - (gw.endTime - 3000)) / 3000), 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+        }
+
+        // Update drones
+        if (player.droneCount > 0) {
+            gs.drones = gs.drones || [];
+            while (gs.drones.length < player.droneCount) {
+                gs.drones.push({ angle: Math.random() * Math.PI * 2, lastShot: 0 });
+            }
+
+            gs.drones.forEach((drone, idx) => {
+                drone.angle += 0.03;
+                const droneX = player.x + Math.cos(drone.angle) * 60;
+                const droneY = player.y + Math.sin(drone.angle) * 60;
+
+                // Draw drone
+                ctx.fillStyle = '#00ffff';
+                ctx.shadowColor = '#00ffff';
+                ctx.shadowBlur = 10;
+                ctx.beginPath();
+                ctx.arc(droneX, droneY, 8, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+
+                // Drone shoots
+                if (now - drone.lastShot > 500) {
+                    // Find nearest enemy
+                    let nearest = null;
+                    let nearestDist = 300;
+                    enemies.forEach(e => {
+                        const dist = Math.hypot(e.x - droneX, e.y - droneY);
+                        if (dist < nearestDist) {
+                            nearest = e;
+                            nearestDist = dist;
+                        }
+                    });
+
+                    if (nearest) {
+                        drone.lastShot = now;
+                        const angle = Math.atan2(nearest.y - droneY, nearest.x - droneX);
+                        bullets.push({
+                            x: droneX,
+                            y: droneY,
+                            vx: Math.cos(angle) * 12,
+                            vy: Math.sin(angle) * 12,
+                            damage: player.damage * 0.3,
+                            piercing: 0,
+                            color: '#00ffff',
+                            size: 5
+                        });
+                    }
+                }
+            });
         }
 
         // Check invulnerability and invisibility
@@ -654,6 +834,31 @@ export default function Game() {
                 b.x = b.startX + (b.targetX - b.startX) * progress;
                 b.y = b.startY + (b.targetY - b.startY) * progress - Math.sin(progress * Math.PI) * arcHeight;
             } else {
+                // Homing bullets curve toward enemies
+                if (player.hasHoming && !b.isEnemy) {
+                    let nearest = null;
+                    let nearestDist = 200;
+                    enemies.forEach(e => {
+                        const dist = Math.hypot(e.x - b.x, e.y - b.y);
+                        if (dist < nearestDist) {
+                            nearest = e;
+                            nearestDist = dist;
+                        }
+                    });
+                    if (nearest) {
+                        const targetAngle = Math.atan2(nearest.y - b.y, nearest.x - b.x);
+                        const currentAngle = Math.atan2(b.vy, b.vx);
+                        let angleDiff = targetAngle - currentAngle;
+                        // Normalize angle difference
+                        while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+                        while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+                        const turnSpeed = 0.1;
+                        const newAngle = currentAngle + angleDiff * turnSpeed;
+                        const speed = Math.hypot(b.vx, b.vy);
+                        b.vx = Math.cos(newAngle) * speed;
+                        b.vy = Math.sin(newAngle) * speed;
+                    }
+                }
                 b.x += b.vx;
                 b.y += b.vy;
             }
@@ -738,32 +943,61 @@ export default function Game() {
                 // Hit player
                 const dist = Math.hypot(player.x - b.x, player.y - b.y);
                 if (dist < PLAYER_SIZE + b.size && !player.invulnerable) {
+                    // Evasion check
+                    if (player.evasionChance > 0 && Math.random() < player.evasionChance) {
+                        createParticles(player.x, player.y, '#ffffff', 5, 6);
+                        if (!b.isCloud) bullets.splice(i, 1);
+                        continue; // Dodged!
+                    }
+
                     let damage = b.damage;
+
+                    // Fortress: damage reduction
+                    if (player.damageReduction > 0) {
+                        damage *= (1 - player.damageReduction);
+                    }
+
                     if (player.shield > 0) {
                         const absorbed = Math.min(player.shield, damage);
                         player.shield -= absorbed;
                         damage -= absorbed;
                     }
+
+                    // Absorb shield: convert damage to shield
+                    if (player.damageToShield > 0 && damage > 0) {
+                        player.shield = Math.min((player.maxShield || 50), player.shield + damage * player.damageToShield);
+                    }
+
                     player.health -= damage;
                     sfxRef.current?.hit();
                     triggerScreenShake(0.3);
                     createParticles(player.x, player.y, '#ff0000', 8, 4);
                     createDamageNumber(player.x, player.y - PLAYER_SIZE, damage, false);
-                    
+
                     // Cloud bullets don't get removed (DOT effect)
                     if (!b.isCloud) {
                         bullets.splice(i, 1);
                     }
-                    
+
                     if (player.health <= 0) {
-                        setFinalStats({
-                            wave: gs.wave,
-                            score: gs.score,
-                            kills: gs.totalKills,
-                            time: Math.floor((Date.now() - gs.startTime) / 1000)
-                        });
-                        sfxRef.current?.death();
-                        setGameOver(true);
+                        // Second Wind: revive once
+                        if (player.hasSecondWind && !player.usedSecondWind) {
+                            player.usedSecondWind = true;
+                            player.health = player.maxHealth * 0.5;
+                            player.invulnerable = true;
+                            player.invulnerableUntil = now + 2000;
+                            createParticles(player.x, player.y, '#00ff00', 30, 10);
+                            sfxRef.current?.upgrade();
+                        } else {
+                            setFinalStats({
+                                wave: gs.wave,
+                                score: gs.score,
+                                kills: gs.totalKills,
+                                time: Math.floor((Date.now() - gs.startTime) / 1000)
+                            });
+                            sfxRef.current?.death();
+                            setGameOver(true);
+                        }
                     }
                 }
             } else {
@@ -774,8 +1008,45 @@ export default function Game() {
                     if (dist < e.size + b.size) {
                         const isCrit = Math.random() < player.critChance;
                         let damage = b.damage * (isCrit ? player.critMultiplier : 1);
+
+                        // Berserker: +50% damage when below 50% HP
+                        if (player.hasBerserker && player.health < player.maxHealth * 0.5) {
+                            damage *= 1.5;
+                        }
+
+                        // Executioner: +100% damage to enemies below 25% HP
+                        if (player.hasExecutioner && e.health < e.maxHealth * 0.25) {
+                            damage *= 2;
+                        }
+
+                        // Armor Pierce: +30% damage to tanky enemies
+                        if (player.hasArmorPierce && e.maxHealth >= 60) {
+                            damage *= 1.3;
+                        }
+
+                        // Overcharge: 3x damage
+                        if (overchargeActive) {
+                            damage *= 3;
+                        }
+
                         e.health -= damage;
                         e.hitFlash = 5;
+
+                        // Poison rounds: DOT effect
+                        if (player.hasPoisonRounds && !e.poisoned) {
+                            e.poisoned = true;
+                            e.poisonDamage = 3;
+                            e.poisonEnd = now + 3000;
+                        }
+
+                        // Freeze rounds: slow effect
+                        if (player.hasFreezeRounds && !e.frozen) {
+                            e.frozen = true;
+                            e.frozenEnd = now + 2000;
+                            e.originalSpeed = e.speed;
+                            e.speed *= 0.5;
+                            createParticles(e.x, e.y, '#88ddff', 8, 4);
+                        }
 
                         // Striker speeds up when hurt
                         if (e.speedsWhenHurt) {
@@ -882,7 +1153,9 @@ export default function Game() {
                         }
 
                         if (e.health <= 0) {
-                            gs.score += e.points * (1 + gs.combo * 0.1);
+                            // Score multiplier upgrade
+                            const scoreMultiplier = player.scoreMultiplier || 1;
+                            gs.score += e.points * (1 + gs.combo * 0.1) * scoreMultiplier;
                             gs.kills++;
                             gs.totalKills++;
                             gs.combo++;
@@ -890,6 +1163,33 @@ export default function Game() {
                             sfxRef.current?.kill();
                             triggerScreenShake(e.type === 'boss' ? 1 : 0.15);
                             createParticles(e.x, e.y, e.color, e.type === 'boss' ? 30 : 15, e.type === 'boss' ? 10 : 6);
+
+                            // Adrenaline: heal on kill
+                            if (player.adrenalineHeal > 0) {
+                                player.health = Math.min(player.maxHealth, player.health + player.adrenalineHeal);
+                            }
+
+                            // Chain lightning on kill
+                            if (player.hasChainLightning) {
+                                enemies.forEach(other => {
+                                    if (other !== e) {
+                                        const d = Math.hypot(other.x - e.x, other.y - e.y);
+                                        if (d < 150) {
+                                            other.health -= player.damage * 0.5;
+                                            other.hitFlash = 5;
+                                            createParticles(other.x, other.y, '#00ffff', 5, 4);
+                                            // Draw lightning arc
+                                            ctx.strokeStyle = '#00ffff';
+                                            ctx.lineWidth = 2;
+                                            ctx.beginPath();
+                                            ctx.moveTo(e.x, e.y);
+                                            ctx.lineTo(other.x, other.y);
+                                            ctx.stroke();
+                                        }
+                                    }
+                                });
+                            }
+
                             enemies.splice(j, 1);
                         }
 
@@ -945,6 +1245,31 @@ export default function Game() {
                 e.health = Math.min(e.maxHealth, e.health + 1);
             }
 
+            // Poison DOT
+            if (e.poisoned) {
+                if (now > e.poisonEnd) {
+                    e.poisoned = false;
+                } else if (!e.lastPoisonTick || now - e.lastPoisonTick > 500) {
+                    e.lastPoisonTick = now;
+                    e.health -= e.poisonDamage;
+                    createParticles(e.x, e.y, '#00ff00', 2, 2);
+                    if (e.health <= 0) {
+                        gs.score += e.points;
+                        gs.kills++;
+                        gs.totalKills++;
+                        createParticles(e.x, e.y, e.color, 15, 6);
+                        enemies.splice(i, 1);
+                        continue;
+                    }
+                }
+            }
+
+            // Freeze effect expiration
+            if (e.frozen && now > e.frozenEnd) {
+                e.frozen = false;
+                e.speed = e.originalSpeed || e.baseSpeed || 2;
+            }
+
             // Blitzer and Inferno trail effects
             if ((e.leavesTrail || e.leavesFireTrail) && now - e.lastTrail > 100) {
                 e.lastTrail = now;
@@ -986,9 +1311,9 @@ export default function Game() {
                         }
                     } else {
                         const angle = Math.atan2(target.y - e.y, target.x - e.x);
-                        e.x += Math.cos(angle) * e.speed;
-                        e.y += Math.sin(angle) * e.speed;
-                        
+                        e.x += Math.cos(angle) * e.speed * timeMultiplier;
+                        e.y += Math.sin(angle) * e.speed * timeMultiplier;
+
                         if (now > e.dashCooldown && Math.random() < 0.01) {
                             e.isDashing = true;
                             e.dashStartTime = now;
@@ -998,8 +1323,8 @@ export default function Game() {
                 } else {
                     // Normal movement toward target
                     const angle = Math.atan2(target.y - e.y, target.x - e.x);
-                    e.x += Math.cos(angle) * e.speed;
-                    e.y += Math.sin(angle) * e.speed;
+                    e.x += Math.cos(angle) * e.speed * timeMultiplier;
+                    e.y += Math.sin(angle) * e.speed * timeMultiplier;
                 }
             }
 
@@ -1189,24 +1514,51 @@ export default function Game() {
                 
                 // Melee damage with cooldown
                 if (!player.invulnerable && now - e.lastMeleeHit > ENEMY_MELEE_COOLDOWN) {
-                    e.lastMeleeHit = now;
-                    let damage = e.damage;
-                    
-                    // Bruiser has melee resistance
-                    if (player.classId === 'bruiser') {
-                        damage *= 0.5;
+                    // Evasion check
+                    if (player.evasionChance > 0 && Math.random() < player.evasionChance) {
+                        createParticles(player.x, player.y, '#ffffff', 5, 6);
+                        e.lastMeleeHit = now;
+                    } else {
+                        e.lastMeleeHit = now;
+                        let damage = e.damage;
+
+                        // Bruiser has melee resistance
+                        if (player.classId === 'bruiser') {
+                            damage *= 0.5;
+                        }
+
+                        // Fortress damage reduction
+                        if (player.damageReduction > 0) {
+                            damage *= (1 - player.damageReduction);
+                        }
+
+                        if (player.shield > 0) {
+                            const absorbed = Math.min(player.shield, damage);
+                            player.shield -= absorbed;
+                            damage -= absorbed;
+                            player.lastShieldHit = now;
+                        }
+
+                        // Absorb shield
+                        if (player.damageToShield > 0 && damage > 0) {
+                            player.shield = Math.min((player.maxShield || 50), player.shield + damage * player.damageToShield);
+                        }
+
+                        player.health -= damage;
+                        createDamageNumber(player.x, player.y - PLAYER_SIZE, damage, false);
+                        sfxRef.current?.hit();
+                        triggerScreenShake(0.15);
+                        createParticles(player.x, player.y, '#ff0000', 5, 3);
+
+                        // Thorns: reflect damage back to enemy
+                        if (player.thornsDamage > 0) {
+                            const thornsDmg = e.damage * player.thornsDamage;
+                            e.health -= thornsDmg;
+                            e.hitFlash = 5;
+                            createParticles(e.x, e.y, '#ff00ff', 5, 4);
+                            createDamageNumber(e.x, e.y - e.size, thornsDmg, false);
+                        }
                     }
-                    
-                    if (player.shield > 0) {
-                        const absorbed = Math.min(player.shield, damage);
-                        player.shield -= absorbed;
-                        damage -= absorbed;
-                    }
-                    player.health -= damage;
-                    createDamageNumber(player.x, player.y - PLAYER_SIZE, damage, false);
-                    sfxRef.current?.hit();
-                    triggerScreenShake(0.15);
-                    createParticles(player.x, player.y, '#ff0000', 5, 3);
                 }
             }
             
