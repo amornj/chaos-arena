@@ -1,74 +1,99 @@
 import React from 'react';
-import { Skull, Zap, Heart, Timer } from 'lucide-react';
 
 const ENEMY_INFO = {
-    basic: { name: 'Basic', color: '#ff4444', desc: 'Standard enemy', icon: '👹' },
-    runner: { name: 'Runner', color: '#ff6666', desc: 'Fast & weak', icon: '💨' },
-    brute: { name: 'Brute', color: '#cc2222', desc: 'Slow & tanky', icon: '💪' },
-    bloater: { name: 'Bloater', color: '#ff8844', desc: 'Explodes on timer', icon: '💥' },
-    spitter: { name: 'Spitter', color: '#88ff44', desc: 'Ranged attacker', icon: '🎯' },
-    speeder: { name: 'Speeder', color: '#ffff44', desc: 'Very fast', icon: '⚡' },
-    heavy: { name: 'Heavy', color: '#880022', desc: 'High HP & damage', icon: '🛡️' },
-    shambler: { name: 'Shambler', color: '#8888ff', desc: 'DOT cloud shooter', icon: '☁️' },
-    nuke: { name: 'Nuke', color: '#ff00ff', desc: 'Massive explosion', icon: '☢️' },
-    dasher: { name: 'Dasher', color: '#00ffff', desc: 'Dash attacks', icon: '🌀' },
-    boss: { name: 'Boss', color: '#ff0066', desc: 'Wave boss', icon: '👑' }
+    basic: { name: 'BASIC', threat: 'LOW', desc: 'STANDARD COMBAT UNIT' },
+    runner: { name: 'RUNNER', threat: 'LOW', desc: 'HIGH MOBILITY / LOW ARMOR' },
+    brute: { name: 'BRUTE', threat: 'MEDIUM', desc: 'HEAVY ARMOR / MELEE SPECIALIST' },
+    bloater: { name: 'BLOATER', threat: 'HIGH', desc: 'SELF-DESTRUCT PROTOCOL ACTIVE' },
+    spitter: { name: 'SPITTER', threat: 'MEDIUM', desc: 'RANGED PROJECTILE THREAT' },
+    speeder: { name: 'SPEEDER', threat: 'MEDIUM', desc: 'EXTREME VELOCITY UNIT' },
+    heavy: { name: 'HEAVY', threat: 'HIGH', desc: 'MAXIMUM ARMOR / HIGH DAMAGE OUTPUT' },
+    shambler: { name: 'SHAMBLER', threat: 'MEDIUM', desc: 'TOXIC CLOUD DEPLOYMENT SYSTEM' },
+    nuke: { name: 'NUKE', threat: 'CRITICAL', desc: 'CATASTROPHIC EXPLOSIVE THREAT' },
+    dasher: { name: 'DASHER', threat: 'MEDIUM', desc: 'DASH ATTACK PATTERN DETECTED' },
+    boss: { name: 'BOSS', threat: 'CRITICAL', desc: 'ELITE COMBAT UNIT' }
 };
 
-export default function EnemyLog({ wave, enemies }) {
-    const enemyCounts = {};
-    enemies.forEach(e => {
-        enemyCounts[e.type] = (enemyCounts[e.type] || 0) + 1;
-    });
-
-    const uniqueTypes = Object.keys(enemyCounts);
-
+export default function EnemyLog({ onClose }) {
     return (
-        <div className="absolute top-4 right-4 w-64 bg-black/80 border border-gray-700 p-3 max-h-96 overflow-y-auto pointer-events-none">
-            <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-700">
-                <Skull className="w-4 h-4 text-red-500" />
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider">Enemy Log</h3>
-            </div>
-            
-            <div className="space-y-2 text-xs">
-                {uniqueTypes.length === 0 ? (
-                    <div className="text-gray-500 text-center py-4">No enemies present</div>
-                ) : (
-                    uniqueTypes.map(type => {
-                        const info = ENEMY_INFO[type];
-                        if (!info) return null;
-                        
-                        return (
-                            <div 
-                                key={type}
-                                className="flex items-center justify-between p-2 bg-gray-900/50 border border-gray-800"
-                            >
-                                <div className="flex items-center gap-2">
-                                    <span className="text-lg">{info.icon}</span>
-                                    <div>
-                                        <div className="font-bold" style={{ color: info.color }}>
-                                            {info.name}
-                                        </div>
-                                        <div className="text-gray-500 text-[10px]">
-                                            {info.desc}
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="text-white font-bold">
-                                    ×{enemyCounts[type]}
-                                </div>
-                            </div>
-                        );
-                    })
-                )}
-            </div>
+        <div 
+            className="absolute inset-0 z-50 flex items-center justify-center bg-black/90"
+            onClick={onClose}
+        >
+            <div 
+                className="relative w-full max-w-3xl bg-black border-4 border-red-500 p-8 font-mono shadow-[0_0_50px_rgba(255,0,0,0.5)]"
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                    boxShadow: '0 0 50px rgba(255,0,0,0.5), inset 0 0 50px rgba(255,0,0,0.1)',
+                    animation: 'scanline 8s linear infinite'
+                }}
+            >
+                {/* Scan lines effect */}
+                <div 
+                    className="absolute inset-0 pointer-events-none opacity-10"
+                    style={{
+                        background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, #ff0000 2px, #ff0000 4px)'
+                    }}
+                />
+                
+                {/* CRT glow */}
+                <div className="absolute inset-0 pointer-events-none bg-gradient-radial from-red-500/5 to-transparent" />
 
-            <div className="mt-3 pt-3 border-t border-gray-700 text-gray-400">
-                <div className="flex justify-between text-[10px]">
-                    <span>TOTAL ACTIVE</span>
-                    <span className="text-white font-bold">{enemies.length}</span>
+                {/* Header */}
+                <div className="mb-6 pb-4 border-b-2 border-red-500">
+                    <h2 className="text-3xl font-black text-red-500 tracking-wider mb-1 animate-pulse">
+                        === ENEMY DATABASE ===
+                    </h2>
+                    <p className="text-green-500 text-sm">SYSTEM ACCESS GRANTED</p>
+                </div>
+
+                {/* Enemy list */}
+                <div className="space-y-3 max-h-96 overflow-y-auto mb-6">
+                    {Object.entries(ENEMY_INFO).map(([type, info]) => (
+                        <div 
+                            key={type}
+                            className="bg-red-950/20 border-l-4 border-red-500 p-3 hover:bg-red-950/40 transition-colors"
+                        >
+                            <div className="flex justify-between items-start mb-1">
+                                <span className="text-red-400 font-bold text-lg">
+                                    &gt; {info.name}
+                                </span>
+                                <span className={`text-xs px-2 py-1 border ${
+                                    info.threat === 'CRITICAL' ? 'text-red-500 border-red-500 bg-red-500/10' :
+                                    info.threat === 'HIGH' ? 'text-orange-500 border-orange-500 bg-orange-500/10' :
+                                    info.threat === 'MEDIUM' ? 'text-yellow-500 border-yellow-500 bg-yellow-500/10' :
+                                    'text-green-500 border-green-500 bg-green-500/10'
+                                }`}>
+                                    THREAT: {info.threat}
+                                </span>
+                            </div>
+                            <p className="text-green-400 text-sm">
+                                {info.desc}
+                            </p>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Footer */}
+                <div className="border-t-2 border-red-500 pt-4 flex justify-between items-center">
+                    <div className="text-green-500 text-sm">
+                        <span className="animate-pulse">█</span> READY
+                    </div>
+                    <button
+                        onClick={onClose}
+                        className="px-6 py-2 bg-red-500/20 border-2 border-red-500 text-red-500 hover:bg-red-500 hover:text-black font-bold transition-all"
+                    >
+                        [ESC] CLOSE
+                    </button>
                 </div>
             </div>
+
+            <style jsx>{`
+                @keyframes scanline {
+                    0% { background-position: 0 0; }
+                    100% { background-position: 0 100%; }
+                }
+            `}</style>
         </div>
     );
 }

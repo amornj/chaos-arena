@@ -42,6 +42,7 @@ export default function Game() {
     });
     const [finalStats, setFinalStats] = useState(null);
     const [availableUpgrades, setAvailableUpgrades] = useState([]);
+    const [showLog, setShowLog] = useState(false);
 
     // Initialize sound effects
     useEffect(() => {
@@ -1148,7 +1149,16 @@ export default function Game() {
                         START CARNAGE
                     </Button>
 
-                    <div className="mt-16 text-gray-500 text-center">
+                    <div className="mt-12 flex gap-4">
+                        <Button 
+                            onClick={() => setShowLog(true)}
+                            className="bg-gray-800 hover:bg-gray-700 text-green-400 font-mono border border-green-500/30"
+                        >
+                            [LOG]
+                        </Button>
+                    </div>
+
+                    <div className="mt-8 text-gray-500 text-center">
                         <p className="mb-2"><span className="text-gray-300">WASD</span> - Move</p>
                         <p className="mb-2"><span className="text-gray-300">MOUSE</span> - Aim</p>
                         <p><span className="text-gray-300">HOLD CLICK</span> - Shoot</p>
@@ -1170,10 +1180,7 @@ export default function Game() {
             />
 
             {gameStarted && !gameOver && (
-                <>
-                    <GameUI {...uiState} />
-                    <EnemyLog wave={uiState.wave} enemies={gameStateRef.current?.enemies || []} />
-                </>
+                <GameUI {...uiState} />
             )}
 
             {showUpgrades && (
@@ -1189,6 +1196,10 @@ export default function Game() {
                     stats={finalStats}
                     onRestart={restartGame}
                 />
+            )}
+
+            {showLog && (
+                <EnemyLog onClose={() => setShowLog(false)} />
             )}
         </div>
     );
