@@ -487,7 +487,18 @@ export default function Game() {
         const weaponFireRate = noWeaponCooldown ? 0 : player.fireRate * (WEAPONS[player.currentWeapon]?.fireRate || 1);
         if (mouse.down && now - player.lastShot > weaponFireRate) {
             player.lastShot = now;
-            
+
+            // Weapon-specific sounds
+            if (player.currentWeapon === 'flamethrower') {
+                sfxRef.current?.shootFlamethrower();
+            } else if (player.currentWeapon === 'sniper') {
+                sfxRef.current?.shootSniper();
+            } else if (player.currentWeapon === 'lightning') {
+                sfxRef.current?.shootLightning();
+            } else if (player.currentWeapon === 'grenade') {
+                sfxRef.current?.shootGrenade();
+            }
+
             // Use weapon system
             shootWeapon(player.currentWeapon, player, mouse.x, mouse.y, shootBullet);
         }
@@ -527,15 +538,60 @@ export default function Game() {
         // Update and draw bullets
         for (let i = bullets.length - 1; i >= 0; i--) {
             const b = bullets[i];
-            b.x += b.vx;
-            b.y += b.vy;
 
-            // Cloud bullets have lifetime
-            if (b.isCloud) {
+            // Grenade bouncing
+            if (b.grenade) {
+                b.x += b.vx;
+                b.y += b.vy;
+                b.vy += 0.3; // Gravity
+
+                // Bounce off edges
+                if ((b.x < 10 || b.x > canvas.width - 10) && b.bounces > 0) {
+                    b.vx *= -0.7;
+                    b.bounces--;
+                    b.x = Math.max(10, Math.min(canvas.width - 10, b.x));
+                }
+                if ((b.y < 10 || b.y > canvas.height - 10) && b.bounces > 0) {
+                    b.vy *= -0.7;
+                    b.bounces--;
+                    b.y = Math.max(10, Math.min(canvas.height - 10, b.y));
+                }
+
+                // Explode after fuse time
+                if (now - b.spawnTime > b.fuseTime) {
+                    createParticles(b.x, b.y, '#ff8800', 30, 12);
+                    triggerScreenShake(0.4);
+
+                    // Damage enemies in radius
+                    enemies.forEach(e => {
+                        const dist = Math.hypot(e.x - b.x, e.y - b.y);
+                        if (dist < 100) {
+                            const dmg = b.damage * (1 - dist / 100);
+                            e.health -= dmg;
+                            e.hitFlash = 5;
+                            createDamageNumber(e.x, e.y - e.size, dmg, false);
+                        }
+                    });
+
+                    bullets.splice(i, 1);
+                    continue;
+                }
+            } else {
+                b.x += b.vx;
+                b.y += b.vy;
+            }
+
+            // Lifetime bullets (flame, cloud)
+            if (b.flame || b.isCloud) {
                 b.lifetime = (b.lifetime || 180) - 1;
                 if (b.lifetime <= 0) {
                     bullets.splice(i, 1);
                     continue;
+                }
+                // Flame slows down
+                if (b.flame) {
+                    b.vx *= 0.96;
+                    b.vy *= 0.96;
                 }
             }
 
@@ -549,11 +605,43 @@ export default function Game() {
             const bulletColor = b.color || (b.isEnemy ? '#ff0066' : '#00ffff');
             ctx.fillStyle = bulletColor;
             ctx.shadowColor = bulletColor;
-            ctx.shadowBlur = b.isCloud ? 20 : 10;
-            ctx.globalAlpha = b.isCloud ? 0.6 : 1;
-            ctx.beginPath();
-            ctx.arc(b.x, b.y, b.size, 0, Math.PI * 2);
-            ctx.fill();
+            ctx.shadowBlur = b.flame ? 25 : (b.isCloud ? 20 : (b.sniper ? 15 : (b.lightning ? 30 : 10)));
+            ctx.globalAlpha = b.flame ? 0.8 : (b.isCloud ? 0.6 : 1);
+
+            if (b.grenade) {
+                // Draw grenade as rotating square
+                const rotation = (now - b.spawnTime) * 0.01;
+                ctx.save();
+                ctx.translate(b.x, b.y);
+                ctx.rotate(rotation);
+                ctx.fillRect(-b.size, -b.size, b.size * 2, b.size * 2);
+                ctx.restore();
+            } else if (b.sniper) {
+                // Draw sniper bullet as elongated
+                ctx.save();
+                ctx.translate(b.x, b.y);
+                ctx.rotate(Math.atan2(b.vy, b.vx));
+                ctx.fillRect(-15, -3, 30, 6);
+                ctx.restore();
+            } else if (b.lightning) {
+                // Draw lightning as sparking circle
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, b.size, 0, Math.PI * 2);
+                ctx.fill();
+                // Add sparks
+                for (let j = 0; j < 3; j++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const dist = b.size + Math.random() * 10;
+                    ctx.beginPath();
+                    ctx.arc(b.x + Math.cos(angle) * dist, b.y + Math.sin(angle) * dist, 2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            } else {
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, b.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
             ctx.shadowBlur = 0;
             ctx.globalAlpha = 1;
 
@@ -605,10 +693,55 @@ export default function Game() {
                         createParticles(b.x, b.y, e.color, 5, 3);
                         sfxRef.current?.enemyHit();
                         
+                        // Lightning chain effect
+                        if (b.lightning && b.chains > 0) {
+                            let nearest = null;
+                            let nearestDist = 999999;
+                            enemies.forEach(other => {
+                                if (other !== e && !other.lightningHit) {
+                                    const d = Math.hypot(other.x - e.x, other.y - e.y);
+                                    if (d < nearestDist && d < b.chainRange) {
+                                        nearest = other;
+                                        nearestDist = d;
+                                    }
+                                }
+                            });
+
+                            if (nearest) {
+                                // Draw lightning arc
+                                ctx.strokeStyle = '#00ffff';
+                                ctx.lineWidth = 3;
+                                ctx.shadowColor = '#00ffff';
+                                ctx.shadowBlur = 20;
+                                ctx.beginPath();
+                                ctx.moveTo(e.x, e.y);
+                                ctx.lineTo(nearest.x, nearest.y);
+                                ctx.stroke();
+                                ctx.shadowBlur = 0;
+
+                                // Damage chained enemy
+                                nearest.health -= damage * 0.5;
+                                nearest.hitFlash = 5;
+                                nearest.lightningHit = true;
+                                createDamageNumber(nearest.x, nearest.y - nearest.size, damage * 0.5, false);
+                                b.chains--;
+                            }
+                        }
+
+                        // Flame DOT effect
+                        if (b.flame && !e.burning) {
+                            e.burning = true;
+                            e.burnDamage = b.damage * 0.5;
+                            e.burnEnd = now + 2000;
+                        }
+
                         // Lifesteal
                         if (player.lifesteal > 0) {
                             player.health = Math.min(player.maxHealth, player.health + damage * player.lifesteal);
                         }
+
+                        // Clear lightning hit flag
+                        e.lightningHit = false;
 
                         // Explosive rounds or explosive weapons
                         if (player.explosiveRounds || b.explosive) {
@@ -668,12 +801,16 @@ export default function Game() {
                             } else {
                                 bullets.splice(i, 1);
                             }
-                        } else if (b.piercing <= 0) {
+                        } else if (b.piercing <= 0 && !b.flame && !b.lightning) {
                             bullets.splice(i, 1);
                         } else {
                             b.piercing--;
                         }
-                        break;
+
+                        // Flame and lightning don't get removed on hit
+                        if (!b.flame && !b.lightning) {
+                            break;
+                        }
                     }
                 }
             }
@@ -864,6 +1001,17 @@ export default function Game() {
                 }
             }
             
+            // Burning DOT
+            if (e.burning && now < e.burnEnd) {
+                if (!e.lastBurnTick || now - e.lastBurnTick > 200) {
+                    e.health -= e.burnDamage;
+                    e.lastBurnTick = now;
+                    createParticles(e.x, e.y, '#ff6600', 3, 3);
+                }
+            } else if (e.burning) {
+                e.burning = false;
+            }
+
             // Enemy-to-enemy collision
             for (let j = i + 1; j < enemies.length; j++) {
                 const e2 = enemies[j];

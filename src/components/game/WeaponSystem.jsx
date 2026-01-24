@@ -64,6 +64,67 @@ export const WEAPONS = {
         speed: 10,
         explosive: true,
         explosionRadius: 50
+    },
+    flamethrower: {
+        name: 'Flamethrower',
+        damage: 0.3,
+        fireRate: 0.15,
+        spread: 0.4,
+        projectiles: 3,
+        piercing: 0,
+        color: '#ff6600',
+        speed: 8,
+        flame: true,
+        lifetime: 30
+    },
+    sniper: {
+        name: 'Sniper Rifle',
+        damage: 5,
+        fireRate: 2,
+        spread: 0,
+        projectiles: 1,
+        piercing: 5,
+        color: '#00ccff',
+        speed: 30,
+        sniper: true
+    },
+    burst: {
+        name: 'Burst Rifle',
+        damage: 0.8,
+        fireRate: 1.5,
+        spread: 0.05,
+        projectiles: 3,
+        piercing: 0,
+        color: '#ffaa00',
+        speed: 20,
+        burst: true,
+        burstDelay: 50
+    },
+    lightning: {
+        name: 'Lightning Gun',
+        damage: 1.5,
+        fireRate: 1.8,
+        spread: 0,
+        projectiles: 1,
+        piercing: 0,
+        color: '#00ffff',
+        speed: 35,
+        lightning: true,
+        chainRange: 150,
+        chains: 3
+    },
+    grenade: {
+        name: 'Grenade Launcher',
+        damage: 2.5,
+        fireRate: 2,
+        spread: 0,
+        projectiles: 1,
+        piercing: 0,
+        color: '#88ff44',
+        speed: 10,
+        grenade: true,
+        bounces: 2,
+        fuseTime: 1500
     }
 };
 
@@ -213,11 +274,33 @@ export function shootWeapon(weapon, player, targetX, targetY, createBullet) {
     const weaponData = WEAPONS[weapon];
     const baseAngle = Math.atan2(targetY - player.y, targetX - player.x);
     
+    // Burst fire handling
+    if (weaponData.burst) {
+        for (let burst = 0; burst < weaponData.projectiles; burst++) {
+            setTimeout(() => {
+                const angle = baseAngle + (Math.random() - 0.5) * weaponData.spread;
+                const startX = player.x + Math.cos(angle) * 25;
+                const startY = player.y + Math.sin(angle) * 25;
+                
+                createBullet({
+                    x: startX,
+                    y: startY,
+                    vx: Math.cos(angle) * weaponData.speed,
+                    vy: Math.sin(angle) * weaponData.speed,
+                    damage: player.damage * weaponData.damage,
+                    piercing: weaponData.piercing + player.piercing,
+                    color: weaponData.color,
+                    size: 6
+                });
+            }, burst * weaponData.burstDelay);
+        }
+        return;
+    }
+    
     for (let i = 0; i < weaponData.projectiles; i++) {
         let angle = baseAngle;
         
         if (weaponData.projectiles > 1) {
-            // Spread projectiles evenly
             const spreadRange = weaponData.spread;
             angle += (i - (weaponData.projectiles - 1) / 2) * (spreadRange / (weaponData.projectiles - 1));
         } else if (weaponData.spread > 0) {
@@ -227,7 +310,7 @@ export function shootWeapon(weapon, player, targetX, targetY, createBullet) {
         const startX = player.x + Math.cos(angle) * 25;
         const startY = player.y + Math.sin(angle) * 25;
         
-        createBullet({
+        const bullet = {
             x: startX,
             y: startY,
             vx: Math.cos(angle) * weaponData.speed,
@@ -235,9 +318,21 @@ export function shootWeapon(weapon, player, targetX, targetY, createBullet) {
             damage: player.damage * weaponData.damage,
             piercing: weaponData.piercing + player.piercing,
             color: weaponData.color,
-            size: weapon === 'rocket' ? 12 : 8,
+            size: weapon === 'rocket' ? 12 : (weapon === 'sniper' ? 10 : 8),
             explosive: weaponData.explosive,
-            explosionRadius: weaponData.explosionRadius
-        });
+            explosionRadius: weaponData.explosionRadius,
+            flame: weaponData.flame,
+            lifetime: weaponData.lifetime,
+            lightning: weaponData.lightning,
+            chainRange: weaponData.chainRange,
+            chains: weaponData.chains,
+            grenade: weaponData.grenade,
+            bounces: weaponData.bounces,
+            fuseTime: weaponData.fuseTime,
+            spawnTime: Date.now(),
+            sniper: weaponData.sniper
+        };
+        
+        createBullet(bullet);
     }
 }
