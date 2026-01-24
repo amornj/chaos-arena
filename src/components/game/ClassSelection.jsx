@@ -211,7 +211,7 @@ export default function ClassSelection({ onSelect }) {
                     <ChevronLeft className="w-6 h-6 text-white" />
                 </button>
 
-                <div className="flex items-center gap-4 overflow-hidden px-16">
+                <div className="relative flex items-center justify-center gap-4 overflow-hidden px-16 h-40">
                     {CLASSES.map((cls, index) => {
                         const offset = index - selectedIndex;
                         const isSelected = index === selectedIndex;
@@ -234,7 +234,7 @@ export default function ClassSelection({ onSelect }) {
                                     filter: isSelected ? 'brightness(1)' : 'brightness(0.5)'
                                 }}
                                 transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                                className={`flex-shrink-0 w-28 h-28 rounded-full border-4 ${
+                                className={`absolute left-1/2 -translate-x-1/2 flex-shrink-0 w-28 h-28 rounded-full border-4 ${
                                     isSelected ? 'border-white' : 'border-gray-700'
                                 } bg-gradient-to-b from-gray-800 to-gray-900 flex items-center justify-center transition-colors`}
                             >
