@@ -16,7 +16,8 @@ const BULLET_SPEED = 15;
 const ENEMY_BASE_SPEED = 2;
 const ENEMY_BASE_HEALTH = 30;
 const ENEMY_BASE_DAMAGE = 5;
-const ENEMY_MELEE_DAMAGE = 0.3; // Damage per frame when touching
+const ENEMY_MELEE_DAMAGE = 5; // Damage per hit (with cooldown)
+const ENEMY_MELEE_COOLDOWN = 500; // ms between melee hits
 
 export default function Game() {
     const canvasRef = useRef(null);
@@ -128,27 +129,35 @@ export default function Game() {
         }
 
         // Enemy types based on wave
-        const types = ['basic'];
-        if (wave >= 3) types.push('fast');
-        if (wave >= 5) types.push('tank');
-        if (wave >= 7) types.push('shooter');
-        if (wave >= 10) types.push('boss');
+        const types = ['basic', 'runner'];
+        if (wave >= 2) types.push('brute');
+        if (wave >= 3) types.push('bloater', 'spitter');
+        if (wave >= 5) types.push('speeder', 'heavy');
+        if (wave >= 7) types.push('shambler');
+        if (wave >= 9) types.push('dasher');
+        if (wave >= 12) types.push('nuke');
         
         const type = wave % 5 === 0 && gs.enemiesSpawned === 0 ? 'boss' : 
-                     types[Math.floor(Math.random() * (types.length - (wave % 5 === 0 ? 0 : 1)))];
+                     types[Math.floor(Math.random() * types.length)];
 
         const enemyConfigs = {
             basic: { health: 30, speed: 2, damage: 5, size: 18, color: '#ff4444', points: 10 },
-            fast: { health: 15, speed: 4.5, damage: 4, size: 14, color: '#ffaa00', points: 15 },
-            tank: { health: 100, speed: 1, damage: 12, size: 30, color: '#8844ff', points: 25 },
-            shooter: { health: 40, speed: 1.5, damage: 8, size: 20, color: '#44ff88', points: 20, shoots: true },
+            runner: { health: 15, speed: 2.4, damage: 2.5, size: 16, color: '#ff6666', points: 12 },
+            brute: { health: 45, speed: 1.8, damage: 10, size: 22, color: '#cc2222', points: 18 },
+            bloater: { health: 20, speed: 2.4, damage: 2.5, size: 22, color: '#ff8844', points: 20, explodes: true, fuseTime: 3 },
+            spitter: { health: 25, speed: 1.5, damage: 6, size: 18, color: '#88ff44', points: 15, shoots: true },
+            speeder: { health: 15, speed: 4, damage: 5, size: 16, color: '#ffff44', points: 25 },
+            heavy: { health: 60, speed: 2, damage: 20, size: 36, color: '#880022', points: 35 },
+            shambler: { health: 40, speed: 1.2, damage: 3, size: 20, color: '#8888ff', points: 25, cloudShooter: true },
+            nuke: { health: 100, speed: 0.8, damage: 50, size: 45, color: '#ff00ff', points: 100, explodes: true, fuseTime: 5, bigExplosion: true },
+            dasher: { health: 30, speed: 2, damage: 8, size: 18, color: '#00ffff', points: 22, dashes: true },
             boss: { health: 300 * wave, speed: 1.5, damage: 15, size: 50, color: '#ff0066', points: 100 * wave }
         };
 
         const config = enemyConfigs[type];
         const dm = difficultyMultiplier;
 
-        gs.enemies.push({
+        const enemy = {
             x, y,
             health: config.health * dm,
             maxHealth: config.health * dm,
@@ -159,9 +168,21 @@ export default function Game() {
             points: config.points,
             type,
             shoots: config.shoots,
+            cloudShooter: config.cloudShooter,
             lastShot: 0,
-            hitFlash: 0
-        });
+            lastMeleeHit: 0,
+            hitFlash: 0,
+            explodes: config.explodes,
+            fuseTime: config.fuseTime,
+            bigExplosion: config.bigExplosion,
+            spawnTime: Date.now(),
+            dashes: config.dashes,
+            dashCooldown: 0,
+            isDashing: false,
+            dashAngle: 0
+        };
+
+        gs.enemies.push(enemy);
     }, []);
 
     const createParticles = useCallback((x, y, color, count = 10, speed = 5) => {
@@ -403,6 +424,15 @@ export default function Game() {
             b.x += b.vx;
             b.y += b.vy;
 
+            // Cloud bullets have lifetime
+            if (b.isCloud) {
+                b.lifetime = (b.lifetime || 180) - 1;
+                if (b.lifetime <= 0) {
+                    bullets.splice(i, 1);
+                    continue;
+                }
+            }
+
             // Check bounds
             if (b.x < -50 || b.x > canvas.width + 50 || b.y < -50 || b.y > canvas.height + 50) {
                 bullets.splice(i, 1);
@@ -410,13 +440,16 @@ export default function Game() {
             }
 
             // Draw bullet
-            ctx.fillStyle = b.color || (b.isEnemy ? '#ff0066' : '#00ffff');
-            ctx.shadowColor = b.color || (b.isEnemy ? '#ff0066' : '#00ffff');
-            ctx.shadowBlur = 10;
+            const bulletColor = b.color || (b.isEnemy ? '#ff0066' : '#00ffff');
+            ctx.fillStyle = bulletColor;
+            ctx.shadowColor = bulletColor;
+            ctx.shadowBlur = b.isCloud ? 20 : 10;
+            ctx.globalAlpha = b.isCloud ? 0.6 : 1;
             ctx.beginPath();
             ctx.arc(b.x, b.y, b.size, 0, Math.PI * 2);
             ctx.fill();
             ctx.shadowBlur = 0;
+            ctx.globalAlpha = 1;
 
             // Collision detection
             if (b.isEnemy) {
@@ -433,7 +466,12 @@ export default function Game() {
                     sfxRef.current?.hit();
                     triggerScreenShake(0.3);
                     createParticles(player.x, player.y, '#ff0000', 8, 4);
-                    bullets.splice(i, 1);
+                    createDamageNumber(player.x, player.y - PLAYER_SIZE, damage, false);
+                    
+                    // Cloud bullets don't get removed (DOT effect)
+                    if (!b.isCloud) {
+                        bullets.splice(i, 1);
+                    }
                     
                     if (player.health <= 0) {
                         setFinalStats({
@@ -509,11 +547,64 @@ export default function Game() {
         }
 
         // Update and draw enemies
-        enemies.forEach(e => {
-            // Move toward player
-            const angle = Math.atan2(player.y - e.y, player.x - e.x);
-            e.x += Math.cos(angle) * e.speed;
-            e.y += Math.sin(angle) * e.speed;
+        for (let i = enemies.length - 1; i >= 0; i--) {
+            const e = enemies[i];
+            
+            // Dasher logic
+            if (e.dashes) {
+                if (e.isDashing) {
+                    e.x += Math.cos(e.dashAngle) * e.speed * 4;
+                    e.y += Math.sin(e.dashAngle) * e.speed * 4;
+                    
+                    if (now - e.dashStartTime > 1000) {
+                        e.isDashing = false;
+                        e.dashCooldown = now + 3000;
+                    }
+                } else {
+                    const angle = Math.atan2(player.y - e.y, player.x - e.x);
+                    e.x += Math.cos(angle) * e.speed;
+                    e.y += Math.sin(angle) * e.speed;
+                    
+                    if (now > e.dashCooldown && Math.random() < 0.01) {
+                        e.isDashing = true;
+                        e.dashStartTime = now;
+                        e.dashAngle = angle;
+                    }
+                }
+            } else {
+                // Normal movement toward player
+                const angle = Math.atan2(player.y - e.y, player.x - e.x);
+                e.x += Math.cos(angle) * e.speed;
+                e.y += Math.sin(angle) * e.speed;
+            }
+
+            // Bloater/Nuke explosion timer
+            if (e.explodes) {
+                const timeSinceSpawn = (now - e.spawnTime) / 1000;
+                if (timeSinceSpawn >= e.fuseTime) {
+                    const radius = e.bigExplosion ? 150 : 80;
+                    createParticles(e.x, e.y, '#ff8800', e.bigExplosion ? 40 : 25, 12);
+                    triggerScreenShake(e.bigExplosion ? 1.5 : 0.6);
+                    sfxRef.current?.kill();
+                    
+                    // Damage player if in range
+                    const distToPlayer = Math.hypot(player.x - e.x, player.y - e.y);
+                    if (distToPlayer < radius && !player.invulnerable) {
+                        let damage = e.damage * 2;
+                        if (player.classId === 'bruiser') damage *= 0.5;
+                        if (player.shield > 0) {
+                            const absorbed = Math.min(player.shield, damage);
+                            player.shield -= absorbed;
+                            damage -= absorbed;
+                        }
+                        player.health -= damage;
+                        createDamageNumber(player.x, player.y - PLAYER_SIZE, damage, false);
+                    }
+                    
+                    enemies.splice(i, 1);
+                    continue;
+                }
+            }
 
             // Shooting enemies
             if (e.shoots && now - e.lastShot > 2000) {
@@ -521,25 +612,47 @@ export default function Game() {
                 shootEnemyBullet(e.x, e.y, player.x, player.y);
             }
 
-            // Melee damage (much reduced)
+            // Cloud shooter (Shambler)
+            if (e.cloudShooter && now - e.lastShot > 3000) {
+                e.lastShot = now;
+                const angle = Math.atan2(player.y - e.y, player.x - e.x);
+                gs.bullets.push({
+                    x: e.x,
+                    y: e.y,
+                    vx: Math.cos(angle) * 3,
+                    vy: Math.sin(angle) * 3,
+                    damage: e.damage * 0.5,
+                    isEnemy: true,
+                    piercing: 0,
+                    size: 15,
+                    color: '#8888ff',
+                    isCloud: true,
+                    lifetime: 180
+                });
+            }
+
+            // Melee damage with cooldown
             const dist = Math.hypot(player.x - e.x, player.y - e.y);
             if (dist < PLAYER_SIZE + e.size && !player.invulnerable) {
-                let damage = ENEMY_MELEE_DAMAGE;
-                
-                // Bruiser has melee resistance
-                if (player.classId === 'bruiser') {
-                    damage *= 0.5;
-                }
-                
-                if (player.shield > 0) {
-                    const absorbed = Math.min(player.shield, damage);
-                    player.shield -= absorbed;
-                    damage -= absorbed;
-                }
-                player.health -= damage;
-                if (Math.random() < 0.02) {
-                    triggerScreenShake(0.05);
-                    createParticles(player.x, player.y, '#ff0000', 2, 2);
+                if (now - e.lastMeleeHit > ENEMY_MELEE_COOLDOWN) {
+                    e.lastMeleeHit = now;
+                    let damage = e.damage;
+                    
+                    // Bruiser has melee resistance
+                    if (player.classId === 'bruiser') {
+                        damage *= 0.5;
+                    }
+                    
+                    if (player.shield > 0) {
+                        const absorbed = Math.min(player.shield, damage);
+                        player.shield -= absorbed;
+                        damage -= absorbed;
+                    }
+                    player.health -= damage;
+                    createDamageNumber(player.x, player.y - PLAYER_SIZE, damage, false);
+                    sfxRef.current?.hit();
+                    triggerScreenShake(0.15);
+                    createParticles(player.x, player.y, '#ff0000', 5, 3);
                 }
             }
 
@@ -547,11 +660,29 @@ export default function Game() {
             ctx.fillStyle = e.hitFlash > 0 ? '#ffffff' : e.color;
             if (e.hitFlash > 0) e.hitFlash--;
             ctx.shadowColor = e.color;
-            ctx.shadowBlur = 15;
+            ctx.shadowBlur = e.isDashing ? 25 : 15;
             ctx.beginPath();
             ctx.arc(e.x, e.y, e.size, 0, Math.PI * 2);
             ctx.fill();
             ctx.shadowBlur = 0;
+
+            // Explosion timer for bloater/nuke
+            if (e.explodes) {
+                const timeSinceSpawn = (now - e.spawnTime) / 1000;
+                const timeLeft = Math.max(0, e.fuseTime - timeSinceSpawn);
+                
+                // Timer bar
+                ctx.fillStyle = '#000';
+                ctx.fillRect(e.x - e.size, e.y - e.size - 18, e.size * 2, 6);
+                ctx.fillStyle = timeLeft < 1 ? '#ff0000' : '#ffaa00';
+                ctx.fillRect(e.x - e.size, e.y - e.size - 18, (timeLeft / e.fuseTime) * e.size * 2, 6);
+                
+                // Timer text
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 12px Inter';
+                ctx.textAlign = 'center';
+                ctx.fillText(timeLeft.toFixed(1), e.x, e.y - e.size - 22);
+            }
 
             // Health bar
             if (e.health < e.maxHealth) {
@@ -560,7 +691,7 @@ export default function Game() {
                 ctx.fillStyle = e.color;
                 ctx.fillRect(e.x - e.size, e.y - e.size - 10, (e.health / e.maxHealth) * e.size * 2, 4);
             }
-        });
+        }
 
         // Update particles
         for (let i = particles.length - 1; i >= 0; i--) {
