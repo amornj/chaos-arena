@@ -59,6 +59,101 @@ const CLASSES = [
             desc: 'Call down explosive strikes around you',
             cooldown: 20
         }
+    },
+    {
+        id: 'berserker',
+        name: 'BERSERKER',
+        icon: Flame,
+        color: 'from-red-700 to-red-500',
+        desc: 'Gains power from killing, high risk high reward',
+        stats: {
+            health: 90,
+            damage: 15,
+            speed: 5.5,
+            fireRate: 150,
+            weapon: 'minigun'
+        },
+        ability: {
+            name: 'BLOOD RAGE',
+            desc: 'Each kill increases damage and speed temporarily',
+            cooldown: 0
+        }
+    },
+    {
+        id: 'sniper',
+        name: 'SNIPER',
+        icon: Target,
+        color: 'from-green-600 to-teal-500',
+        desc: 'Long range precision with massive critical damage',
+        stats: {
+            health: 70,
+            damage: 30,
+            speed: 5,
+            fireRate: 400,
+            weapon: 'pistol'
+        },
+        ability: {
+            name: 'FOCUS SHOT',
+            desc: 'Next shot deals 5x damage and pierces everything',
+            cooldown: 10
+        }
+    },
+    {
+        id: 'engineer',
+        name: 'ENGINEER',
+        icon: Shield,
+        color: 'from-yellow-600 to-orange-500',
+        desc: 'Deploys turrets and gains shield regeneration',
+        stats: {
+            health: 100,
+            damage: 10,
+            speed: 4.5,
+            fireRate: 180,
+            weapon: 'pistol'
+        },
+        ability: {
+            name: 'DEPLOY TURRET',
+            desc: 'Place an auto-turret that shoots enemies',
+            cooldown: 18
+        }
+    },
+    {
+        id: 'assassin',
+        name: 'ASSASSIN',
+        icon: Target,
+        color: 'from-indigo-600 to-purple-500',
+        desc: 'Extreme speed and damage, but very fragile',
+        stats: {
+            health: 60,
+            damage: 18,
+            speed: 7,
+            fireRate: 100,
+            weapon: 'pistol'
+        },
+        ability: {
+            name: 'SHADOW STRIKE',
+            desc: 'Teleport to cursor and gain brief invulnerability',
+            cooldown: 8
+        }
+    },
+    {
+        id: 'medic',
+        name: 'MEDIC',
+        icon: Shield,
+        color: 'from-pink-500 to-rose-400',
+        desc: 'Sustain specialist with healing and regeneration',
+        stats: {
+            health: 110,
+            damage: 9,
+            speed: 5,
+            fireRate: 160,
+            weapon: 'shotgun'
+        },
+        ability: {
+            name: 'HEAL PULSE',
+            desc: 'Instantly heal 30% of max health',
+            cooldown: 12
+        }
     }
 ];
 

@@ -631,10 +631,20 @@ export default function Game() {
                 });
             }
 
-            // Melee damage with cooldown
-            const dist = Math.hypot(player.x - e.x, player.y - e.y);
-            if (dist < PLAYER_SIZE + e.size && !player.invulnerable) {
-                if (now - e.lastMeleeHit > ENEMY_MELEE_COOLDOWN) {
+            // Player collision
+            const distToPlayer = Math.hypot(player.x - e.x, player.y - e.y);
+            const minDist = PLAYER_SIZE + e.size;
+            if (distToPlayer < minDist) {
+                // Push apart
+                const angle = Math.atan2(e.y - player.y, e.x - player.x);
+                const overlap = minDist - distToPlayer;
+                e.x += Math.cos(angle) * overlap * 0.5;
+                e.y += Math.sin(angle) * overlap * 0.5;
+                player.x -= Math.cos(angle) * overlap * 0.5;
+                player.y -= Math.sin(angle) * overlap * 0.5;
+                
+                // Melee damage with cooldown
+                if (!player.invulnerable && now - e.lastMeleeHit > ENEMY_MELEE_COOLDOWN) {
                     e.lastMeleeHit = now;
                     let damage = e.damage;
                     
@@ -653,6 +663,21 @@ export default function Game() {
                     sfxRef.current?.hit();
                     triggerScreenShake(0.15);
                     createParticles(player.x, player.y, '#ff0000', 5, 3);
+                }
+            }
+            
+            // Enemy-to-enemy collision
+            for (let j = i + 1; j < enemies.length; j++) {
+                const e2 = enemies[j];
+                const dist = Math.hypot(e.x - e2.x, e.y - e2.y);
+                const minDist = e.size + e2.size;
+                if (dist < minDist) {
+                    const angle = Math.atan2(e2.y - e.y, e2.x - e.x);
+                    const overlap = (minDist - dist) * 0.5;
+                    e.x -= Math.cos(angle) * overlap;
+                    e.y -= Math.sin(angle) * overlap;
+                    e2.x += Math.cos(angle) * overlap;
+                    e2.y += Math.sin(angle) * overlap;
                 }
             }
 
