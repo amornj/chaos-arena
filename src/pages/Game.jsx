@@ -143,25 +143,56 @@ export default function Game() {
         const types = ['basic', 'runner'];
         if (wave >= 2) types.push('brute');
         if (wave >= 3) types.push('bloater', 'spitter');
+        if (wave >= 4) types.push('blitzer', 'detonator');
         if (wave >= 5) types.push('speeder', 'heavy');
-        if (wave >= 7) types.push('shambler');
-        if (wave >= 9) types.push('dasher');
-        if (wave >= 12) types.push('nuke');
-        
-        const type = wave % 5 === 0 && gs.enemiesSpawned === 0 ? 'boss' : 
+        if (wave >= 6) types.push('gunner', 'volatile');
+        if (wave >= 7) types.push('shambler', 'striker');
+        if (wave >= 8) types.push('sniper', 'cluster');
+        if (wave >= 9) types.push('dasher', 'phantom');
+        if (wave >= 10) types.push('juggernaut', 'inferno');
+        if (wave >= 11) types.push('goliath', 'mortar');
+        if (wave >= 12) types.push('nuke', 'ironclad');
+        if (wave >= 15) types.push('megaton');
+
+        const type = wave % 5 === 0 && gs.enemiesSpawned === 0 ? 'boss' :
                      types[Math.floor(Math.random() * types.length)];
 
         const enemyConfigs = {
+            // Basic enemies
             basic: { health: 30, speed: 2, damage: 5, size: 18, color: '#ff4444', points: 10 },
             runner: { health: 15, speed: 2.4, damage: 2.5, size: 16, color: '#ff6666', points: 12 },
+
+            // Tanky enemies
             brute: { health: 45, speed: 1.8, damage: 10, size: 22, color: '#cc2222', points: 18 },
-            bloater: { health: 20, speed: 2.4, damage: 2.5, size: 22, color: '#ff8844', points: 20, explodes: true, fuseTime: 3 },
-            spitter: { health: 25, speed: 1.5, damage: 6, size: 18, color: '#88ff44', points: 15, shoots: true },
-            speeder: { health: 15, speed: 4, damage: 5, size: 16, color: '#ffff44', points: 25 },
             heavy: { health: 60, speed: 2, damage: 20, size: 36, color: '#880022', points: 35 },
-            shambler: { health: 40, speed: 1.2, damage: 3, size: 20, color: '#8888ff', points: 25, cloudShooter: true },
-            nuke: { health: 100, speed: 0.8, damage: 50, size: 45, color: '#ff00ff', points: 100, explodes: true, fuseTime: 5, bigExplosion: true },
+            juggernaut: { health: 200, speed: 0.8, damage: 25, size: 45, color: '#660000', points: 60 },
+            goliath: { health: 120, speed: 1.4, damage: 15, size: 38, color: '#551122', points: 50, regenerates: true },
+            ironclad: { health: 100, speed: 1.6, damage: 12, size: 30, color: '#444466', points: 45, explosionResist: true },
+
+            // Speed enemies
+            speeder: { health: 15, speed: 4, damage: 5, size: 16, color: '#ffff44', points: 25 },
+            blitzer: { health: 12, speed: 5, damage: 4, size: 14, color: '#ffaa00', points: 30, leavesTrail: true },
+            phantom: { health: 25, speed: 3.5, damage: 6, size: 16, color: '#aa44ff', points: 35, phasing: true },
+            striker: { health: 20, speed: 3, damage: 7, size: 17, color: '#ff8888', points: 28, speedsWhenHurt: true },
             dasher: { health: 30, speed: 2, damage: 8, size: 18, color: '#00ffff', points: 22, dashes: true },
+
+            // Explosion enemies
+            bloater: { health: 20, speed: 2.4, damage: 2.5, size: 22, color: '#ff8844', points: 20, explodes: true, fuseTime: 3 },
+            nuke: { health: 100, speed: 0.8, damage: 50, size: 45, color: '#ff00ff', points: 100, explodes: true, fuseTime: 5, bigExplosion: true },
+            cluster: { health: 35, speed: 1.8, damage: 8, size: 24, color: '#ff6600', points: 40, explodes: true, fuseTime: 4, spawnsMiniBombs: true },
+            volatile: { health: 18, speed: 2.2, damage: 15, size: 20, color: '#ffcc00', points: 25, explodesOnHit: true },
+            inferno: { health: 40, speed: 1.5, damage: 10, size: 22, color: '#ff3300', points: 45, leavesFireTrail: true, explodes: true, fuseTime: 6 },
+            detonator: { health: 15, speed: 2.8, damage: 20, size: 18, color: '#ff0044', points: 30, explodes: true, fuseTime: 1.5 },
+            megaton: { health: 250, speed: 0.5, damage: 80, size: 55, color: '#ff00aa', points: 150, explodes: true, fuseTime: 8, bigExplosion: true, hugeExplosion: true },
+
+            // Ranged enemies
+            spitter: { health: 25, speed: 1.5, damage: 6, size: 18, color: '#88ff44', points: 15, shoots: true },
+            shambler: { health: 40, speed: 1.2, damage: 3, size: 20, color: '#8888ff', points: 25, cloudShooter: true },
+            sniper: { health: 30, speed: 1.0, damage: 18, size: 18, color: '#44ff88', points: 35, shoots: true, sniperShot: true },
+            gunner: { health: 35, speed: 1.3, damage: 4, size: 20, color: '#44ffaa', points: 32, shoots: true, rapidFire: true },
+            mortar: { health: 45, speed: 1.0, damage: 12, size: 24, color: '#88ffcc', points: 40, mortarShot: true },
+
+            // Boss
             boss: { health: 300 * wave, speed: 1.5, damage: 15, size: 50, color: '#ff0066', points: 100 * wave }
         };
 
@@ -173,6 +204,7 @@ export default function Game() {
             health: config.health * dm,
             maxHealth: config.health * dm,
             speed: config.speed * (1 + dm * 0.1),
+            baseSpeed: config.speed * (1 + dm * 0.1),
             damage: config.damage * dm,
             size: config.size,
             color: config.color,
@@ -186,11 +218,26 @@ export default function Game() {
             explodes: config.explodes,
             fuseTime: config.fuseTime,
             bigExplosion: config.bigExplosion,
+            hugeExplosion: config.hugeExplosion,
             spawnTime: Date.now(),
             dashes: config.dashes,
             dashCooldown: 0,
             isDashing: false,
-            dashAngle: 0
+            dashAngle: 0,
+            // New properties
+            regenerates: config.regenerates,
+            explosionResist: config.explosionResist,
+            leavesTrail: config.leavesTrail,
+            phasing: config.phasing,
+            speedsWhenHurt: config.speedsWhenHurt,
+            spawnsMiniBombs: config.spawnsMiniBombs,
+            explodesOnHit: config.explodesOnHit,
+            leavesFireTrail: config.leavesFireTrail,
+            sniperShot: config.sniperShot,
+            rapidFire: config.rapidFire,
+            mortarShot: config.mortarShot,
+            lastTrail: 0,
+            lastRegen: 0
         };
 
         gs.enemies.push(enemy);
@@ -576,6 +623,36 @@ export default function Game() {
                     bullets.splice(i, 1);
                     continue;
                 }
+            } else if (b.isMortar) {
+                // Mortar bullet arcing movement
+                b.mortarProgress += 0.02;
+                if (b.mortarProgress >= 1) {
+                    // Mortar lands - create explosion
+                    createParticles(b.targetX, b.targetY, '#88ffcc', 20, 10);
+                    triggerScreenShake(0.5);
+
+                    // Damage player if in range
+                    const mortarRadius = 70;
+                    const distToPlayer = Math.hypot(player.x - b.targetX, player.y - b.targetY);
+                    if (distToPlayer < mortarRadius && !player.invulnerable) {
+                        let mortarDamage = b.damage * 1.5;
+                        if (player.classId === 'bruiser') mortarDamage *= 0.5;
+                        if (player.shield > 0) {
+                            const absorbed = Math.min(player.shield, mortarDamage);
+                            player.shield -= absorbed;
+                            mortarDamage -= absorbed;
+                        }
+                        player.health -= mortarDamage;
+                        createDamageNumber(player.x, player.y - PLAYER_SIZE, mortarDamage, false);
+                    }
+                    bullets.splice(i, 1);
+                    continue;
+                }
+                // Arc trajectory
+                const arcHeight = 100;
+                const progress = b.mortarProgress;
+                b.x = b.startX + (b.targetX - b.startX) * progress;
+                b.y = b.startY + (b.targetY - b.startY) * progress - Math.sin(progress * Math.PI) * arcHeight;
             } else {
                 b.x += b.vx;
                 b.y += b.vy;
@@ -595,10 +672,21 @@ export default function Game() {
                 }
             }
 
-            // Check bounds
-            if (b.x < -50 || b.x > canvas.width + 50 || b.y < -50 || b.y > canvas.height + 50) {
+            // Check bounds (skip for mortar bullets)
+            if (!b.isMortar && (b.x < -50 || b.x > canvas.width + 50 || b.y < -50 || b.y > canvas.height + 50)) {
                 bullets.splice(i, 1);
                 continue;
+            }
+
+            // Draw mortar landing indicator
+            if (b.isMortar) {
+                ctx.globalAlpha = 0.3 + b.mortarProgress * 0.4;
+                ctx.strokeStyle = '#ff4444';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(b.targetX, b.targetY, 70, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.globalAlpha = 1;
             }
 
             // Draw bullet
@@ -645,8 +733,8 @@ export default function Game() {
             ctx.shadowBlur = 0;
             ctx.globalAlpha = 1;
 
-            // Collision detection
-            if (b.isEnemy) {
+            // Collision detection (skip mortar bullets - they handle damage on landing)
+            if (b.isEnemy && !b.isMortar) {
                 // Hit player
                 const dist = Math.hypot(player.x - b.x, player.y - b.y);
                 if (dist < PLAYER_SIZE + b.size && !player.invulnerable) {
@@ -688,7 +776,37 @@ export default function Game() {
                         let damage = b.damage * (isCrit ? player.critMultiplier : 1);
                         e.health -= damage;
                         e.hitFlash = 5;
-                        
+
+                        // Striker speeds up when hurt
+                        if (e.speedsWhenHurt) {
+                            e.speed = Math.min(e.baseSpeed * 2, e.speed * 1.15);
+                            createParticles(e.x, e.y, '#ff8888', 3, 4);
+                        }
+
+                        // Volatile explodes when hit
+                        if (e.explodesOnHit && !e.hasExploded) {
+                            e.hasExploded = true;
+                            const volatileRadius = 60;
+                            createParticles(e.x, e.y, '#ffcc00', 20, 10);
+                            triggerScreenShake(0.4);
+
+                            // Damage player if in range
+                            const distToPlayer = Math.hypot(player.x - e.x, player.y - e.y);
+                            if (distToPlayer < volatileRadius && !player.invulnerable) {
+                                let volatileDamage = e.damage;
+                                if (player.classId === 'bruiser') volatileDamage *= 0.5;
+                                if (player.shield > 0) {
+                                    const absorbed = Math.min(player.shield, volatileDamage);
+                                    player.shield -= absorbed;
+                                    volatileDamage -= absorbed;
+                                }
+                                player.health -= volatileDamage;
+                                createDamageNumber(player.x, player.y - PLAYER_SIZE, volatileDamage, false);
+                            }
+                            // Kill the volatile enemy
+                            e.health = 0;
+                        }
+
                         createDamageNumber(e.x, e.y - e.size, damage, isCrit);
                         createParticles(b.x, b.y, e.color, 5, 3);
                         sfxRef.current?.enemyHit();
@@ -748,12 +866,13 @@ export default function Game() {
                             const radius = b.explosionRadius || 60;
                             createParticles(b.x, b.y, '#ff8800', 15, 8);
                             triggerScreenShake(b.explosionRadius ? 0.4 : 0.2);
-                            // Damage nearby enemies
+                            // Damage nearby enemies (ironclad resists explosions)
                             enemies.forEach(other => {
                                 if (other !== e) {
                                     const d = Math.hypot(other.x - b.x, other.y - b.y);
                                     if (d < radius) {
-                                        const explosionDamage = damage * (b.explosionRadius ? 0.7 : 0.5);
+                                        let explosionDamage = damage * (b.explosionRadius ? 0.7 : 0.5);
+                                        if (other.explosionResist) explosionDamage *= 0.3; // Ironclad takes 70% less explosion damage
                                         other.health -= explosionDamage;
                                         other.hitFlash = 5;
                                         createDamageNumber(other.x, other.y - other.size, explosionDamage, false);
@@ -819,7 +938,26 @@ export default function Game() {
         // Update and draw enemies
         for (let i = enemies.length - 1; i >= 0; i--) {
             const e = enemies[i];
-            
+
+            // Goliath regeneration
+            if (e.regenerates && now - e.lastRegen > 500) {
+                e.lastRegen = now;
+                e.health = Math.min(e.maxHealth, e.health + 1);
+            }
+
+            // Blitzer and Inferno trail effects
+            if ((e.leavesTrail || e.leavesFireTrail) && now - e.lastTrail > 100) {
+                e.lastTrail = now;
+                const trailColor = e.leavesFireTrail ? '#ff3300' : '#ffaa00';
+                createParticles(e.x, e.y, trailColor, 3, 2);
+
+                // Fire trail damages player
+                if (e.leavesFireTrail) {
+                    gs.fireTrails = gs.fireTrails || [];
+                    gs.fireTrails.push({ x: e.x, y: e.y, damage: 2, lifetime: 120 });
+                }
+            }
+
             // Check if stunned
             if (e.stunned && now < e.stunEndTime) {
                 // Don't move, skip to rendering
@@ -885,7 +1023,7 @@ export default function Game() {
                 }
 
                 if (timeSinceSpawn >= e.fuseTime) {
-                    const radius = e.bigExplosion ? 800 : 80;
+                    const radius = e.hugeExplosion ? 250 : (e.bigExplosion ? 800 : 80);
 
                     // Create massive explosion effect for nuke
                     if (e.bigExplosion) {
@@ -923,7 +1061,7 @@ export default function Game() {
                     }
 
                     // Damage other enemies in blast
-                    if (e.bigExplosion) {
+                    if (e.bigExplosion || e.hugeExplosion) {
                         enemies.forEach(other => {
                             if (other !== e) {
                                 const d = Math.hypot(other.x - e.x, other.y - e.y);
@@ -936,15 +1074,86 @@ export default function Game() {
                         });
                     }
 
+                    // Cluster spawns mini bombs
+                    if (e.spawnsMiniBombs) {
+                        for (let m = 0; m < 4; m++) {
+                            const angle = (Math.PI * 2 / 4) * m;
+                            const spawnDist = 40;
+                            gs.enemies.push({
+                                x: e.x + Math.cos(angle) * spawnDist,
+                                y: e.y + Math.sin(angle) * spawnDist,
+                                health: 10,
+                                maxHealth: 10,
+                                speed: 2.5,
+                                baseSpeed: 2.5,
+                                damage: e.damage * 0.5,
+                                size: 12,
+                                color: '#ff9944',
+                                points: 5,
+                                type: 'minibomb',
+                                lastShot: 0,
+                                lastMeleeHit: 0,
+                                hitFlash: 0,
+                                explodes: true,
+                                fuseTime: 1.5,
+                                spawnTime: Date.now(),
+                                lastTrail: 0,
+                                lastRegen: 0
+                            });
+                        }
+                    }
+
                     enemies.splice(i, 1);
                     continue;
                 }
             }
 
             // Shooting enemies
-            if (e.shoots && now - e.lastShot > 2000) {
+            if (e.shoots) {
+                // Sniper - slow but powerful shots
+                const shootCooldown = e.sniperShot ? 4000 : (e.rapidFire ? 400 : 2000);
+                if (now - e.lastShot > shootCooldown) {
+                    e.lastShot = now;
+                    const angle = Math.atan2(player.y - e.y, player.x - e.x);
+                    const speed = e.sniperShot ? 15 : 8;
+                    const damage = e.sniperShot ? e.damage * 1.5 : (e.rapidFire ? e.damage * 0.5 : e.damage);
+                    const bulletSize = e.sniperShot ? 8 : 6;
+                    const bulletColor = e.sniperShot ? '#44ff88' : (e.rapidFire ? '#44ffaa' : '#ff0066');
+
+                    gs.bullets.push({
+                        x: e.x,
+                        y: e.y,
+                        vx: Math.cos(angle) * speed,
+                        vy: Math.sin(angle) * speed,
+                        damage: damage,
+                        isEnemy: true,
+                        piercing: 0,
+                        size: bulletSize,
+                        color: bulletColor
+                    });
+                }
+            }
+
+            // Mortar - arcing explosive shots
+            if (e.mortarShot && now - e.lastShot > 3500) {
                 e.lastShot = now;
-                shootEnemyBullet(e.x, e.y, player.x, player.y);
+                gs.bullets.push({
+                    x: e.x,
+                    y: e.y,
+                    targetX: player.x,
+                    targetY: player.y,
+                    vx: 0,
+                    vy: 0,
+                    damage: e.damage,
+                    isEnemy: true,
+                    isMortar: true,
+                    mortarProgress: 0,
+                    startX: e.x,
+                    startY: e.y,
+                    piercing: 0,
+                    size: 10,
+                    color: '#88ffcc'
+                });
             }
 
             // Cloud shooter (Shambler)
@@ -1012,18 +1221,21 @@ export default function Game() {
                 e.burning = false;
             }
 
-            // Enemy-to-enemy collision
-            for (let j = i + 1; j < enemies.length; j++) {
-                const e2 = enemies[j];
-                const dist = Math.hypot(e.x - e2.x, e.y - e2.y);
-                const minDist = e.size + e2.size;
-                if (dist < minDist) {
-                    const angle = Math.atan2(e2.y - e.y, e2.x - e.x);
-                    const overlap = (minDist - dist) * 0.5;
-                    e.x -= Math.cos(angle) * overlap;
-                    e.y -= Math.sin(angle) * overlap;
-                    e2.x += Math.cos(angle) * overlap;
-                    e2.y += Math.sin(angle) * overlap;
+            // Enemy-to-enemy collision (phantom enemies phase through)
+            if (!e.phasing) {
+                for (let j = i + 1; j < enemies.length; j++) {
+                    const e2 = enemies[j];
+                    if (e2.phasing) continue; // Skip collision with phantom enemies
+                    const dist = Math.hypot(e.x - e2.x, e.y - e2.y);
+                    const minDist = e.size + e2.size;
+                    if (dist < minDist) {
+                        const angle = Math.atan2(e2.y - e.y, e2.x - e.x);
+                        const overlap = (minDist - dist) * 0.5;
+                        e.x -= Math.cos(angle) * overlap;
+                        e.y -= Math.sin(angle) * overlap;
+                        e2.x += Math.cos(angle) * overlap;
+                        e2.y += Math.sin(angle) * overlap;
+                    }
                 }
             }
 
@@ -1105,7 +1317,7 @@ export default function Game() {
             p.vx *= 0.95;
             p.vy *= 0.95;
             p.life -= p.decay;
-            
+
             if (p.life <= 0) {
                 particles.splice(i, 1);
                 continue;
@@ -1115,6 +1327,46 @@ export default function Game() {
             ctx.fillStyle = p.color;
             ctx.fillRect(p.x - p.size/2, p.y - p.size/2, p.size, p.size);
             ctx.globalAlpha = 1;
+        }
+
+        // Update and draw fire trails (from Inferno enemies)
+        if (gs.fireTrails) {
+            for (let i = gs.fireTrails.length - 1; i >= 0; i--) {
+                const trail = gs.fireTrails[i];
+                trail.lifetime--;
+
+                if (trail.lifetime <= 0) {
+                    gs.fireTrails.splice(i, 1);
+                    continue;
+                }
+
+                // Draw fire trail
+                ctx.globalAlpha = trail.lifetime / 120;
+                ctx.fillStyle = '#ff3300';
+                ctx.shadowColor = '#ff6600';
+                ctx.shadowBlur = 15;
+                ctx.beginPath();
+                ctx.arc(trail.x, trail.y, 12, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+                ctx.globalAlpha = 1;
+
+                // Damage player if touching fire trail
+                const distToPlayer = Math.hypot(player.x - trail.x, player.y - trail.y);
+                if (distToPlayer < PLAYER_SIZE + 12 && !player.invulnerable && !trail.hitThisFrame) {
+                    trail.hitThisFrame = true;
+                    let fireDamage = trail.damage;
+                    if (player.classId === 'bruiser') fireDamage *= 0.5;
+                    if (player.shield > 0) {
+                        const absorbed = Math.min(player.shield, fireDamage);
+                        player.shield -= absorbed;
+                        fireDamage -= absorbed;
+                    }
+                    player.health -= fireDamage;
+                }
+            }
+            // Reset hit tracking each frame
+            gs.fireTrails.forEach(t => t.hitThisFrame = false);
         }
 
         // Update damage numbers
@@ -1509,36 +1761,61 @@ export default function Game() {
                     onSpawnEnemy={(type) => {
                         const gs = gameStateRef.current;
                         if (!gs || !sandboxMode) return;
-                        
-                        const canvas = gs.canvas;
+
                         const player = gs.player;
                         const angle = Math.random() * Math.PI * 2;
                         const dist = 200 + Math.random() * 100;
                         const x = player.x + Math.cos(angle) * dist;
                         const y = player.y + Math.sin(angle) * dist;
-                        
+
                         const enemyConfigs = {
+                            // Basic enemies
                             basic: { health: 30, speed: 2, damage: 5, size: 18, color: '#ff4444', points: 10 },
                             runner: { health: 15, speed: 2.4, damage: 2.5, size: 16, color: '#ff6666', points: 12 },
+
+                            // Tanky enemies
                             brute: { health: 45, speed: 1.8, damage: 10, size: 22, color: '#cc2222', points: 18 },
-                            bloater: { health: 20, speed: 2.4, damage: 2.5, size: 22, color: '#ff8844', points: 20, explodes: true, fuseTime: 3 },
-                            spitter: { health: 25, speed: 1.5, damage: 6, size: 18, color: '#88ff44', points: 15, shoots: true },
-                            speeder: { health: 15, speed: 4, damage: 5, size: 16, color: '#ffff44', points: 25 },
                             heavy: { health: 60, speed: 2, damage: 20, size: 36, color: '#880022', points: 35 },
-                            shambler: { health: 40, speed: 1.2, damage: 3, size: 20, color: '#8888ff', points: 25, cloudShooter: true },
-                            nuke: { health: 100, speed: 0.8, damage: 50, size: 45, color: '#ff00ff', points: 100, explodes: true, fuseTime: 5, bigExplosion: true },
+                            juggernaut: { health: 200, speed: 0.8, damage: 25, size: 45, color: '#660000', points: 60 },
+                            goliath: { health: 120, speed: 1.4, damage: 15, size: 38, color: '#551122', points: 50, regenerates: true },
+                            ironclad: { health: 100, speed: 1.6, damage: 12, size: 30, color: '#444466', points: 45, explosionResist: true },
+
+                            // Speed enemies
+                            speeder: { health: 15, speed: 4, damage: 5, size: 16, color: '#ffff44', points: 25 },
+                            blitzer: { health: 12, speed: 5, damage: 4, size: 14, color: '#ffaa00', points: 30, leavesTrail: true },
+                            phantom: { health: 25, speed: 3.5, damage: 6, size: 16, color: '#aa44ff', points: 35, phasing: true },
+                            striker: { health: 20, speed: 3, damage: 7, size: 17, color: '#ff8888', points: 28, speedsWhenHurt: true },
                             dasher: { health: 30, speed: 2, damage: 8, size: 18, color: '#00ffff', points: 22, dashes: true },
+
+                            // Explosion enemies
+                            bloater: { health: 20, speed: 2.4, damage: 2.5, size: 22, color: '#ff8844', points: 20, explodes: true, fuseTime: 3 },
+                            nuke: { health: 100, speed: 0.8, damage: 50, size: 45, color: '#ff00ff', points: 100, explodes: true, fuseTime: 5, bigExplosion: true },
+                            cluster: { health: 35, speed: 1.8, damage: 8, size: 24, color: '#ff6600', points: 40, explodes: true, fuseTime: 4, spawnsMiniBombs: true },
+                            volatile: { health: 18, speed: 2.2, damage: 15, size: 20, color: '#ffcc00', points: 25, explodesOnHit: true },
+                            inferno: { health: 40, speed: 1.5, damage: 10, size: 22, color: '#ff3300', points: 45, leavesFireTrail: true, explodes: true, fuseTime: 6 },
+                            detonator: { health: 15, speed: 2.8, damage: 20, size: 18, color: '#ff0044', points: 30, explodes: true, fuseTime: 1.5 },
+                            megaton: { health: 250, speed: 0.5, damage: 80, size: 55, color: '#ff00aa', points: 150, explodes: true, fuseTime: 8, bigExplosion: true, hugeExplosion: true },
+
+                            // Ranged enemies
+                            spitter: { health: 25, speed: 1.5, damage: 6, size: 18, color: '#88ff44', points: 15, shoots: true },
+                            shambler: { health: 40, speed: 1.2, damage: 3, size: 20, color: '#8888ff', points: 25, cloudShooter: true },
+                            sniper: { health: 30, speed: 1.0, damage: 18, size: 18, color: '#44ff88', points: 35, shoots: true, sniperShot: true },
+                            gunner: { health: 35, speed: 1.3, damage: 4, size: 20, color: '#44ffaa', points: 32, shoots: true, rapidFire: true },
+                            mortar: { health: 45, speed: 1.0, damage: 12, size: 24, color: '#88ffcc', points: 40, mortarShot: true },
+
+                            // Boss
                             boss: { health: 300, speed: 1.5, damage: 15, size: 50, color: '#ff0066', points: 100 }
                         };
-                        
+
                         const config = enemyConfigs[type];
                         if (!config) return;
-                        
+
                         const enemy = {
                             x, y,
                             health: config.health,
                             maxHealth: config.health,
                             speed: config.speed,
+                            baseSpeed: config.speed,
                             damage: config.damage,
                             size: config.size,
                             color: config.color,
@@ -1552,13 +1829,28 @@ export default function Game() {
                             explodes: config.explodes,
                             fuseTime: config.fuseTime,
                             bigExplosion: config.bigExplosion,
+                            hugeExplosion: config.hugeExplosion,
                             spawnTime: Date.now(),
                             dashes: config.dashes,
                             dashCooldown: 0,
                             isDashing: false,
-                            dashAngle: 0
+                            dashAngle: 0,
+                            // New properties
+                            regenerates: config.regenerates,
+                            explosionResist: config.explosionResist,
+                            leavesTrail: config.leavesTrail,
+                            phasing: config.phasing,
+                            speedsWhenHurt: config.speedsWhenHurt,
+                            spawnsMiniBombs: config.spawnsMiniBombs,
+                            explodesOnHit: config.explodesOnHit,
+                            leavesFireTrail: config.leavesFireTrail,
+                            sniperShot: config.sniperShot,
+                            rapidFire: config.rapidFire,
+                            mortarShot: config.mortarShot,
+                            lastTrail: 0,
+                            lastRegen: 0
                         };
-                        
+
                         gs.enemies.push(enemy);
                         createParticles(x, y, config.color, 15, 8);
                     }}

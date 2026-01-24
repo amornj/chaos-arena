@@ -1,16 +1,41 @@
 import React from 'react';
 
 const ENEMY_INFO = {
+    // Basic
     basic: { name: 'BASIC', threat: 'LOW', desc: 'STANDARD COMBAT UNIT' },
     runner: { name: 'RUNNER', threat: 'LOW', desc: 'HIGH MOBILITY / LOW ARMOR' },
+
+    // Tanky
     brute: { name: 'BRUTE', threat: 'MEDIUM', desc: 'HEAVY ARMOR / MELEE SPECIALIST' },
-    bloater: { name: 'BLOATER', threat: 'HIGH', desc: 'SELF-DESTRUCT PROTOCOL ACTIVE' },
-    spitter: { name: 'SPITTER', threat: 'MEDIUM', desc: 'RANGED PROJECTILE THREAT' },
-    speeder: { name: 'SPEEDER', threat: 'MEDIUM', desc: 'EXTREME VELOCITY UNIT' },
     heavy: { name: 'HEAVY', threat: 'HIGH', desc: 'MAXIMUM ARMOR / HIGH DAMAGE OUTPUT' },
-    shambler: { name: 'SHAMBLER', threat: 'MEDIUM', desc: 'TOXIC CLOUD DEPLOYMENT SYSTEM' },
-    nuke: { name: 'NUKE', threat: 'CRITICAL', desc: 'CATASTROPHIC EXPLOSIVE THREAT' },
+    juggernaut: { name: 'JUGGERNAUT', threat: 'HIGH', desc: 'UNSTOPPABLE MASS / EXTREME DURABILITY' },
+    goliath: { name: 'GOLIATH', threat: 'HIGH', desc: 'REGENERATIVE PLATING / SELF-REPAIR ACTIVE' },
+    ironclad: { name: 'IRONCLAD', threat: 'MEDIUM', desc: 'EXPLOSION RESISTANT / HARDENED SHELL' },
+
+    // Speed
+    speeder: { name: 'SPEEDER', threat: 'MEDIUM', desc: 'EXTREME VELOCITY UNIT' },
+    blitzer: { name: 'BLITZER', threat: 'MEDIUM', desc: 'AFTERBURNER TRAIL / MAXIMUM SPEED' },
+    phantom: { name: 'PHANTOM', threat: 'MEDIUM', desc: 'PHASE SHIFTER / IGNORES COLLISIONS' },
+    striker: { name: 'STRIKER', threat: 'HIGH', desc: 'DAMAGE ACCELERATOR / SPEEDS WHEN HIT' },
     dasher: { name: 'DASHER', threat: 'MEDIUM', desc: 'DASH ATTACK PATTERN DETECTED' },
+
+    // Explosion
+    bloater: { name: 'BLOATER', threat: 'HIGH', desc: 'SELF-DESTRUCT PROTOCOL ACTIVE' },
+    nuke: { name: 'NUKE', threat: 'CRITICAL', desc: 'CATASTROPHIC EXPLOSIVE THREAT' },
+    cluster: { name: 'CLUSTER', threat: 'HIGH', desc: 'MULTI-WARHEAD SYSTEM / SPAWNS MINI-BOMBS' },
+    volatile: { name: 'VOLATILE', threat: 'HIGH', desc: 'UNSTABLE CORE / EXPLODES ON CONTACT' },
+    inferno: { name: 'INFERNO', threat: 'HIGH', desc: 'FIRE TRAIL / SCORCHED EARTH PROTOCOL' },
+    detonator: { name: 'DETONATOR', threat: 'MEDIUM', desc: 'RAPID FUSE / QUICK DETONATION' },
+    megaton: { name: 'MEGATON', threat: 'CRITICAL', desc: 'MASSIVE PAYLOAD / CITY-LEVELING BLAST' },
+
+    // Ranged
+    spitter: { name: 'SPITTER', threat: 'MEDIUM', desc: 'RANGED PROJECTILE THREAT' },
+    shambler: { name: 'SHAMBLER', threat: 'MEDIUM', desc: 'TOXIC CLOUD DEPLOYMENT SYSTEM' },
+    sniper: { name: 'SNIPER', threat: 'HIGH', desc: 'PRECISION TARGETING / HIGH DAMAGE SHOTS' },
+    gunner: { name: 'GUNNER', threat: 'MEDIUM', desc: 'RAPID FIRE SUPPRESSION / BULLET STORM' },
+    mortar: { name: 'MORTAR', threat: 'HIGH', desc: 'ARTILLERY SYSTEM / AREA DENIAL' },
+
+    // Boss
     boss: { name: 'BOSS', threat: 'CRITICAL', desc: 'ELITE COMBAT UNIT' }
 };
 
