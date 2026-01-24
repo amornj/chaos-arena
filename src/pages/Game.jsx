@@ -340,9 +340,11 @@ export default function Game() {
         player.x = Math.max(PLAYER_SIZE, Math.min(canvas.width - PLAYER_SIZE, player.x));
         player.y = Math.max(PLAYER_SIZE, Math.min(canvas.height - PLAYER_SIZE, player.y));
 
+        // Get current time once
+        const now = Date.now();
+
         // Player regeneration
         if (player.regen > 0) {
-            const now = Date.now();
             if (now - player.lastRegen > 1000) {
                 player.health = Math.min(player.maxHealth, player.health + player.regen);
                 player.lastRegen = now;
