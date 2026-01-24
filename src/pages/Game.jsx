@@ -46,8 +46,10 @@ export default function Game() {
         if (!canvas) return;
         
         const ctx = canvas.getContext('2d');
-        canvas.width = canvas.offsetWidth;
-        canvas.height = canvas.offsetHeight;
+        // Set explicit dimensions
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width || window.innerWidth;
+        canvas.height = rect.height || window.innerHeight;
 
         gameStateRef.current = {
             ctx,
@@ -676,13 +678,16 @@ export default function Game() {
     useEffect(() => {
         const handleResize = () => {
             if (canvasRef.current && gameStateRef.current) {
-                canvasRef.current.width = canvasRef.current.offsetWidth;
-                canvasRef.current.height = canvasRef.current.offsetHeight;
+                const rect = canvasRef.current.getBoundingClientRect();
+                canvasRef.current.width = rect.width || window.innerWidth;
+                canvasRef.current.height = rect.height || window.innerHeight;
                 gameStateRef.current.canvas = canvasRef.current;
             }
         };
 
         window.addEventListener('resize', handleResize);
+        // Initial size
+        handleResize();
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
@@ -715,8 +720,8 @@ export default function Game() {
 
             <canvas 
                 ref={canvasRef}
-                className="w-full h-full"
-                style={{ display: gameStarted ? 'block' : 'none' }}
+                className="w-full h-full block"
+                style={{ display: gameStarted ? 'block' : 'none', touchAction: 'none' }}
             />
 
             {gameStarted && !gameOver && (
