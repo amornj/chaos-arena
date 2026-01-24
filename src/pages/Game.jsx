@@ -559,13 +559,60 @@ export default function Game() {
             }
         }
 
-        const speedMultiplier = player.dashActive ? 4 : (player.isSprinting ? 1.5 : 1);
-        
+        // Nitro Boost (N key)
+        if (keys.n && player.hasNitro) {
+            if (!player.lastNitro || now - player.lastNitro > 10000) {
+                player.lastNitro = now;
+                player.nitroUntil = now + 3000;
+                createParticles(player.x, player.y, '#ff6600', 30, 12);
+                sfxRef.current?.upgrade();
+            }
+        }
+        const nitroActive = player.nitroUntil && now < player.nitroUntil;
+
+        // Momentum - speed increases while moving
+        if (player.hasMomentum) {
+            if (dx !== 0 || dy !== 0) {
+                player.momentumStacks = Math.min(50, (player.momentumStacks || 0) + 0.5);
+            } else {
+                player.momentumStacks = Math.max(0, (player.momentumStacks || 0) - 2);
+            }
+        }
+        const momentumBonus = player.hasMomentum ? 1 + (player.momentumStacks || 0) / 100 : 1;
+
+        // Quickstep - speed boost after kill
+        const quickstepActive = player.hasQuickstep && player.quickstepUntil && now < player.quickstepUntil;
+        const quickstepBonus = quickstepActive ? 1.5 : 1;
+
+        // Slipstream - speed boost when near enemies
+        let slipstreamBonus = 1;
+        if (player.hasSlipstream) {
+            enemies.forEach(e => {
+                const dist = Math.hypot(e.x - player.x, e.y - player.y);
+                if (dist < 100) {
+                    slipstreamBonus = Math.max(slipstreamBonus, 1.3);
+                }
+            });
+        }
+
+        // Sprint mastery - infinite stamina
+        if (player.infiniteSprint && player.isSprinting) {
+            player.stamina = player.maxStamina;
+        }
+
+        const speedMultiplier = (player.dashActive ? 4 : (player.isSprinting ? 1.5 : 1))
+            * momentumBonus * quickstepBonus * slipstreamBonus * (nitroActive ? 2 : 1);
+
         if (dx !== 0 || dy !== 0) {
             const len = Math.sqrt(dx * dx + dy * dy);
             dx /= len; dy /= len;
             player.x += dx * player.speed * speedMultiplier;
             player.y += dy * player.speed * speedMultiplier;
+
+            // Create trail effect when moving fast
+            if (speedMultiplier > 1.5 || nitroActive) {
+                createParticles(player.x, player.y, nitroActive ? '#ff6600' : '#00ffff', 1, 2);
+            }
         }
         
         // Keep player in bounds
@@ -958,8 +1005,10 @@ export default function Game() {
                 // Hit player
                 const dist = Math.hypot(player.x - b.x, player.y - b.y);
                 if (dist < PLAYER_SIZE + b.size && !player.invulnerable) {
-                    // Evasion check
-                    if (player.evasionChance > 0 && Math.random() < player.evasionChance) {
+                    // Evasion check (blur adds +20% while moving)
+                    const blurBonus = (player.hasBlur && (gs.keys.w || gs.keys.a || gs.keys.s || gs.keys.d)) ? 0.2 : 0;
+                    const totalEvasion = (player.evasionChance || 0) + blurBonus;
+                    if (totalEvasion > 0 && Math.random() < totalEvasion) {
                         createParticles(player.x, player.y, '#ffffff', 5, 6);
                         if (!b.isCloud) bullets.splice(i, 1);
                         continue; // Dodged!
@@ -1203,6 +1252,11 @@ export default function Game() {
                                         }
                                     }
                                 });
+                            }
+
+                            // Quickstep: speed boost on kill
+                            if (player.hasQuickstep) {
+                                player.quickstepUntil = now + 1000;
                             }
 
                             enemies.splice(j, 1);

@@ -135,6 +135,58 @@ export const GEAR = {
         desc: '+30% Movement Speed',
         apply: (p) => p.speed *= 1.3
     },
+    nitro_boost: {
+        name: 'Nitro Boost',
+        icon: '🚀',
+        desc: 'Press N: 200% speed for 3s (10s CD)',
+        apply: (p) => p.hasNitro = true
+    },
+    momentum: {
+        name: 'Momentum',
+        icon: '💨',
+        desc: 'Speed increases while moving (up to +50%)',
+        apply: (p) => p.hasMomentum = true
+    },
+    combat_roll: {
+        name: 'Combat Roll',
+        icon: '🔄',
+        desc: 'Double-tap direction to roll (invincible)',
+        apply: (p) => p.hasCombatRoll = true
+    },
+    lightweight: {
+        name: 'Lightweight',
+        icon: '🪶',
+        desc: '+20% Speed, -10% Max HP',
+        apply: (p) => {
+            p.speed *= 1.2;
+            p.maxHealth *= 0.9;
+            p.health = Math.min(p.health, p.maxHealth);
+        }
+    },
+    sprint_mastery: {
+        name: 'Sprint Mastery',
+        icon: '🏃',
+        desc: 'Sprinting uses no stamina',
+        apply: (p) => p.infiniteSprint = true
+    },
+    blur: {
+        name: 'Blur',
+        icon: '👻',
+        desc: '+20% evasion while moving',
+        apply: (p) => p.hasBlur = true
+    },
+    slipstream: {
+        name: 'Slipstream',
+        icon: '🌊',
+        desc: 'Moving through enemies boosts speed',
+        apply: (p) => p.hasSlipstream = true
+    },
+    quickstep: {
+        name: 'Quickstep',
+        icon: '⚡',
+        desc: '+50% speed for 1s after killing',
+        apply: (p) => p.hasQuickstep = true
+    },
     armor_vest: {
         name: 'Armor Vest',
         icon: '🦺',
