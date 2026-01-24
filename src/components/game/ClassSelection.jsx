@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Shield, Target, Flame } from 'lucide-react';
+import { Shield, Target, Flame, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const CLASSES = [
     {
@@ -158,81 +158,164 @@ const CLASSES = [
 ];
 
 export default function ClassSelection({ onSelect }) {
+    const [selectedIndex, setSelectedIndex] = useState(0);
+    
+    useEffect(() => {
+        const handleWheel = (e) => {
+            if (e.deltaY > 0) {
+                setSelectedIndex(prev => Math.min(CLASSES.length - 1, prev + 1));
+            } else if (e.deltaY < 0) {
+                setSelectedIndex(prev => Math.max(0, prev - 1));
+            }
+        };
+        
+        const handleKeyboard = (e) => {
+            if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+                setSelectedIndex(prev => Math.max(0, prev - 1));
+            } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+                setSelectedIndex(prev => Math.min(CLASSES.length - 1, prev + 1));
+            } else if (e.key === 'Enter' || e.key === ' ') {
+                onSelect(CLASSES[selectedIndex]);
+            }
+        };
+        
+        window.addEventListener('wheel', handleWheel);
+        window.addEventListener('keydown', handleKeyboard);
+        return () => {
+            window.removeEventListener('wheel', handleWheel);
+            window.removeEventListener('keydown', handleKeyboard);
+        };
+    }, [selectedIndex, onSelect]);
+    
+    const selectedClass = CLASSES[selectedIndex];
+    const Icon = selectedClass.icon;
+    
     return (
         <div className="absolute inset-0 flex flex-col items-center justify-center z-30 bg-gradient-to-b from-[#0a0a0f] via-[#1a0a1f] to-[#0a0a0f]">
             <motion.div
                 initial={{ y: -50, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
-                className="text-center mb-12"
+                className="text-center mb-8"
             >
-                <h1 className="text-5xl font-black text-white mb-2 tracking-wider">CHOOSE YOUR CLASS</h1>
-                <p className="text-gray-500 uppercase tracking-widest text-sm">Each class has unique abilities</p>
+                <h1 className="text-4xl font-black text-white mb-2 tracking-wider">CHOOSE YOUR CLASS</h1>
+                <p className="text-gray-500 uppercase tracking-widest text-xs">Scroll or use arrow keys</p>
             </motion.div>
 
-            <div className="flex flex-col md:flex-row gap-6 px-4 max-w-6xl">
-                {CLASSES.map((cls, index) => {
-                    const Icon = cls.icon;
-                    return (
-                        <motion.button
-                            key={cls.id}
-                            initial={{ y: 50, opacity: 0 }}
-                            animate={{ y: 0, opacity: 1 }}
-                            transition={{ delay: index * 0.15 }}
-                            onClick={() => onSelect(cls)}
-                            className="group relative w-full md:w-80 bg-gradient-to-b from-gray-900/90 to-black/90 border-2 border-gray-700 hover:border-transparent p-8 transition-all duration-300 hover:scale-105"
-                        >
-                            <div className={`absolute inset-0 bg-gradient-to-b ${cls.color} opacity-0 group-hover:opacity-20 transition-opacity`} />
-                            
-                            <Icon className="w-16 h-16 mx-auto mb-4 text-gray-400 group-hover:text-white transition-colors" />
-                            
-                            <h3 className="text-2xl font-black text-white mb-3 tracking-wider">
-                                {cls.name}
-                            </h3>
-                            
-                            <p className="text-gray-400 text-sm mb-6">
-                                {cls.desc}
-                            </p>
+            {/* Character carousel */}
+            <div className="relative w-full max-w-5xl flex items-center justify-center mb-8">
+                <button
+                    onClick={() => setSelectedIndex(prev => Math.max(0, prev - 1))}
+                    disabled={selectedIndex === 0}
+                    className="absolute left-4 z-20 bg-gray-900/80 hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed border border-gray-700 p-3 transition-all"
+                >
+                    <ChevronLeft className="w-6 h-6 text-white" />
+                </button>
 
-                            <div className="space-y-2 mb-6 text-left text-xs">
-                                <div className="flex justify-between text-gray-500">
-                                    <span>HEALTH</span>
-                                    <span className="text-white font-bold">{cls.stats.health}</span>
-                                </div>
-                                <div className="flex justify-between text-gray-500">
-                                    <span>DAMAGE</span>
-                                    <span className="text-white font-bold">{cls.stats.damage}</span>
-                                </div>
-                                <div className="flex justify-between text-gray-500">
-                                    <span>SPEED</span>
-                                    <span className="text-white font-bold">{cls.stats.speed}</span>
-                                </div>
-                                <div className="flex justify-between text-gray-500">
-                                    <span>WEAPON</span>
-                                    <span className="text-white font-bold uppercase">{cls.stats.weapon}</span>
-                                </div>
-                            </div>
+                <div className="flex items-center gap-4 overflow-hidden px-16">
+                    {CLASSES.map((cls, index) => {
+                        const offset = index - selectedIndex;
+                        const isSelected = index === selectedIndex;
+                        const ClassIcon = cls.icon;
+                        
+                        return (
+                            <motion.button
+                                key={cls.id}
+                                onClick={() => {
+                                    if (isSelected) {
+                                        onSelect(cls);
+                                    } else {
+                                        setSelectedIndex(index);
+                                    }
+                                }}
+                                animate={{
+                                    x: offset * 140,
+                                    scale: isSelected ? 1.3 : Math.max(0.6, 1 - Math.abs(offset) * 0.2),
+                                    opacity: Math.abs(offset) > 2 ? 0 : Math.max(0.3, 1 - Math.abs(offset) * 0.3),
+                                    filter: isSelected ? 'brightness(1)' : 'brightness(0.5)'
+                                }}
+                                transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                                className={`flex-shrink-0 w-28 h-28 rounded-full border-4 ${
+                                    isSelected ? 'border-white' : 'border-gray-700'
+                                } bg-gradient-to-b from-gray-800 to-gray-900 flex items-center justify-center transition-colors`}
+                            >
+                                <ClassIcon className={`w-12 h-12 ${isSelected ? 'text-white' : 'text-gray-500'}`} />
+                            </motion.button>
+                        );
+                    })}
+                </div>
 
-                            <div className="border-t border-gray-700 pt-4">
-                                <div className={`text-xs uppercase tracking-widest mb-1 font-bold bg-gradient-to-r ${cls.color} bg-clip-text text-transparent`}>
-                                    {cls.ability.name}
-                                </div>
-                                <p className="text-gray-500 text-xs">{cls.ability.desc}</p>
-                                <p className="text-gray-600 text-xs mt-1">CD: {cls.ability.cooldown}s</p>
-                            </div>
-
-                            <div className={`absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r ${cls.color} transform scale-x-0 group-hover:scale-x-100 transition-transform`} />
-                        </motion.button>
-                    );
-                })}
+                <button
+                    onClick={() => setSelectedIndex(prev => Math.min(CLASSES.length - 1, prev + 1))}
+                    disabled={selectedIndex === CLASSES.length - 1}
+                    className="absolute right-4 z-20 bg-gray-900/80 hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed border border-gray-700 p-3 transition-all"
+                >
+                    <ChevronRight className="w-6 h-6 text-white" />
+                </button>
             </div>
+
+            {/* Selected class info */}
+            <motion.div
+                key={selectedIndex}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="w-full max-w-2xl px-4"
+            >
+                <div className="bg-gradient-to-b from-gray-900/90 to-black/90 border-2 border-gray-700 p-8">
+                    <div className={`absolute inset-0 bg-gradient-to-b ${selectedClass.color} opacity-10`} />
+                    
+                    <div className="relative z-10">
+                        <h2 className={`text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r ${selectedClass.color} mb-3 text-center tracking-wider`}>
+                            {selectedClass.name}
+                        </h2>
+                        
+                        <p className="text-gray-400 text-center text-sm mb-6">
+                            {selectedClass.desc}
+                        </p>
+
+                        <div className="grid grid-cols-2 gap-4 mb-6">
+                            <div className="bg-black/40 p-3 border border-gray-800">
+                                <div className="text-gray-500 text-xs uppercase tracking-wider mb-1">Health</div>
+                                <div className="text-white font-bold text-xl">{selectedClass.stats.health}</div>
+                            </div>
+                            <div className="bg-black/40 p-3 border border-gray-800">
+                                <div className="text-gray-500 text-xs uppercase tracking-wider mb-1">Damage</div>
+                                <div className="text-white font-bold text-xl">{selectedClass.stats.damage}</div>
+                            </div>
+                            <div className="bg-black/40 p-3 border border-gray-800">
+                                <div className="text-gray-500 text-xs uppercase tracking-wider mb-1">Speed</div>
+                                <div className="text-white font-bold text-xl">{selectedClass.stats.speed}</div>
+                            </div>
+                            <div className="bg-black/40 p-3 border border-gray-800">
+                                <div className="text-gray-500 text-xs uppercase tracking-wider mb-1">Weapon</div>
+                                <div className="text-white font-bold text-xl uppercase">{selectedClass.stats.weapon}</div>
+                            </div>
+                        </div>
+
+                        <div className="border-t border-gray-700 pt-4">
+                            <div className={`text-sm uppercase tracking-widest mb-2 font-bold bg-gradient-to-r ${selectedClass.color} bg-clip-text text-transparent`}>
+                                {selectedClass.ability.name}
+                            </div>
+                            <p className="text-gray-400 text-sm mb-2">{selectedClass.ability.desc}</p>
+                            <p className="text-gray-600 text-xs">Cooldown: {selectedClass.ability.cooldown}s</p>
+                        </div>
+
+                        <button
+                            onClick={() => onSelect(selectedClass)}
+                            className={`w-full mt-6 bg-gradient-to-r ${selectedClass.color} hover:opacity-90 text-white font-black text-xl py-4 uppercase tracking-wider transition-all hover:scale-105`}
+                        >
+                            Select {selectedClass.name}
+                        </button>
+                    </div>
+                </div>
+            </motion.div>
 
             <motion.p
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                transition={{ delay: 0.6 }}
-                className="mt-8 text-gray-600 text-sm"
+                transition={{ delay: 0.5 }}
+                className="mt-6 text-gray-600 text-xs"
             >
-                Click to select your class
+                Press Enter or Space to confirm
             </motion.p>
         </div>
     );
