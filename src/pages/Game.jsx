@@ -327,6 +327,9 @@ export default function Game() {
             if (gs.screenShake.intensity < 0.1) gs.screenShake.intensity = 0;
         }
 
+        // Get current time once
+        const now = Date.now();
+
         // Draw grid background
         ctx.strokeStyle = '#1a1a2e';
         ctx.lineWidth = 1;
@@ -444,9 +447,6 @@ export default function Game() {
         // Keep player in bounds
         player.x = Math.max(PLAYER_SIZE, Math.min(canvas.width - PLAYER_SIZE, player.x));
         player.y = Math.max(PLAYER_SIZE, Math.min(canvas.height - PLAYER_SIZE, player.y));
-
-        // Get current time once
-        const now = Date.now();
 
         // Player regeneration
         if (player.regen > 0) {
