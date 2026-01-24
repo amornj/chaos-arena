@@ -372,10 +372,21 @@ export default function Game() {
             }
         }
 
-        // Check invulnerability
+        // Overheal decay
+        if (player.overheal > 0) {
+            const decayTime = now - player.overhealDecayStart;
+            if (decayTime < 30000) {
+                player.overheal = 200 * (1 - decayTime / 30000);
+            } else {
+                player.overheal = 0;
+            }
+        }
+
+        // Check invulnerability and invisibility
         if (player.invulnerable && now > player.invulnerableUntil) {
             player.invulnerable = false;
         }
+        const isInvisible = now < player.invisibleUntil;
 
         // Auto-fire
         const weaponFireRate = player.fireRate * (WEAPONS[player.currentWeapon]?.fireRate || 1);
