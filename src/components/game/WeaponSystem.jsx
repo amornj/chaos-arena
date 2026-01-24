@@ -119,6 +119,69 @@ export const GEAR = {
         icon: '🔥',
         desc: '+30% Fire Rate',
         apply: (p) => p.fireRate *= 0.7
+    },
+    dash: {
+        name: 'Dash Module',
+        icon: '💨',
+        desc: 'Press X: Dash at 400% speed (2s)',
+        apply: (p) => p.hasDash = true
+    },
+    afterimage: {
+        name: 'Afterimage',
+        icon: '👻',
+        desc: 'Press V: Invisible 10s, leave decoy',
+        apply: (p) => p.hasAfterimage = true
+    },
+    decoy: {
+        name: 'Combat Decoy',
+        icon: '🤖',
+        desc: 'Press B: Spawn fighting clone',
+        apply: (p) => p.hasDecoy = true
+    },
+    sword: {
+        name: 'Energy Sword',
+        icon: '⚔️',
+        desc: 'Click: Melee slash with bleed DOT',
+        apply: (p) => p.hasSword = true
+    },
+    jackhammer: {
+        name: 'Jackhammer',
+        icon: '🔨',
+        desc: 'Hold J: Charge massive knockback',
+        apply: (p) => p.hasJackhammer = true
+    },
+    daze: {
+        name: 'Daze Field',
+        icon: '💫',
+        desc: 'Press C: Stun nearby enemies',
+        apply: (p) => p.hasDaze = true
+    },
+    ricochet: {
+        name: 'Ricochet',
+        icon: '🎱',
+        desc: 'Bullets bounce off enemies (+1)',
+        apply: (p) => p.ricochetCount = (p.ricochetCount || 0) + 1
+    },
+    teleport: {
+        name: 'Teleporter',
+        icon: '🌀',
+        desc: 'Press T: Teleport to cursor',
+        apply: (p) => p.hasTeleport = true
+    },
+    medicine: {
+        name: 'Medicine Kit',
+        icon: '💊',
+        desc: 'Press M: Heal 25 HP (30s CD)',
+        apply: (p) => p.hasMedicine = true
+    },
+    lifeblood: {
+        name: 'Lifeblood Serum',
+        icon: '🧪',
+        desc: '+200 Overheal (decays 30s)',
+        apply: (p) => {
+            p.overheal = 200;
+            p.overhealDecayStart = Date.now();
+        }
     }
 };
 
