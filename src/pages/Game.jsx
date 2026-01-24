@@ -3,7 +3,9 @@ import { Button } from "@/components/ui/button";
 import GameUI from '@/components/game/GameUI';
 import UpgradeModal from '@/components/game/UpgradeModal';
 import GameOverScreen from '@/components/game/GameOverScreen';
+import ClassSelection, { CLASSES } from '@/components/game/ClassSelection';
 import { createSFX } from '@/components/game/SoundEngine';
+import { shootWeapon, createWeaponUpgrade, createGearUpgrade, WEAPONS, GEAR } from '@/components/game/WeaponSystem';
 
 // Game constants
 const PLAYER_BASE_SPEED = 5;
@@ -23,6 +25,8 @@ export default function Game() {
     const sfxRef = useRef(null);
     
     const [gameStarted, setGameStarted] = useState(false);
+    const [classSelected, setClassSelected] = useState(false);
+    const [selectedClass, setSelectedClass] = useState(null);
     const [isPaused, setIsPaused] = useState(false);
     const [showUpgrades, setShowUpgrades] = useState(false);
     const [gameOver, setGameOver] = useState(false);
@@ -52,27 +56,40 @@ export default function Game() {
         canvas.width = rect.width || window.innerWidth;
         canvas.height = rect.height || window.innerHeight;
 
+        const classData = selectedClass || CLASSES[0];
+        
         gameStateRef.current = {
             ctx,
             canvas,
             player: {
                 x: canvas.width / 2,
                 y: canvas.height / 2,
-                speed: PLAYER_BASE_SPEED,
-                health: PLAYER_BASE_HEALTH,
-                maxHealth: PLAYER_BASE_HEALTH,
-                damage: PLAYER_BASE_DAMAGE,
-                fireRate: 150,
+                speed: classData.stats.speed,
+                health: classData.stats.health,
+                maxHealth: classData.stats.health,
+                damage: classData.stats.damage,
+                fireRate: classData.stats.fireRate,
                 lastShot: 0,
                 piercing: 0,
                 lifesteal: 0,
                 explosiveRounds: false,
                 multishot: 1,
-                critChance: 0.05,
+                critChance: classData.id === 'gunslinger' ? 0.25 : 0.05,
                 critMultiplier: 2,
                 shield: 0,
+                maxShield: 0,
                 regen: 0,
-                lastRegen: 0
+                lastRegen: 0,
+                currentWeapon: classData.stats.weapon,
+                classId: classData.id,
+                ability: {
+                    name: classData.ability.name,
+                    cooldown: classData.ability.cooldown,
+                    ready: true,
+                    lastUsed: 0
+                },
+                invulnerable: false,
+                invulnerableUntil: 0
             },
             bullets: [],
             enemies: [],
@@ -179,29 +196,37 @@ export default function Game() {
         });
     }, []);
 
-    const shootBullet = useCallback((fromX, fromY, toX, toY, isEnemy = false, spread = 0) => {
+    const shootBullet = useCallback((bulletData) => {
+        const gs = gameStateRef.current;
+        if (!gs) return;
+        
+        gs.bullets.push(bulletData);
+        
+        if (!bulletData.isEnemy) {
+            sfxRef.current?.shoot();
+            createParticles(bulletData.x, bulletData.y, bulletData.color || '#ffff00', 3, 3);
+        }
+    }, [createParticles]);
+
+    const shootEnemyBullet = useCallback((fromX, fromY, toX, toY) => {
         const gs = gameStateRef.current;
         if (!gs) return;
 
-        const angle = Math.atan2(toY - fromY, toX - fromX) + (Math.random() - 0.5) * spread;
-        const speed = isEnemy ? 8 : BULLET_SPEED;
+        const angle = Math.atan2(toY - fromY, toX - fromX);
+        const speed = 8;
         
         gs.bullets.push({
             x: fromX,
             y: fromY,
             vx: Math.cos(angle) * speed,
             vy: Math.sin(angle) * speed,
-            damage: isEnemy ? gs.enemies[0]?.damage || 10 : gs.player.damage,
-            isEnemy,
-            piercing: isEnemy ? 0 : gs.player.piercing,
-            size: isEnemy ? 6 : 8
+            damage: gs.enemies[0]?.damage || 10,
+            isEnemy: true,
+            piercing: 0,
+            size: 6,
+            color: '#ff0066'
         });
-
-        if (!isEnemy) {
-            sfxRef.current?.shoot();
-            createParticles(fromX, fromY, '#ffff00', 3, 3);
-        }
-    }, [createParticles]);
+    }, []);
 
     const triggerScreenShake = useCallback((intensity) => {
         const gs = gameStateRef.current;
@@ -211,7 +236,10 @@ export default function Game() {
     }, []);
 
     const generateUpgrades = useCallback(() => {
-        const allUpgrades = [
+        const gs = gameStateRef.current;
+        const wave = gs?.wave || 1;
+        
+        const statUpgrades = [
             { id: 'damage', name: 'DAMAGE+', desc: '+20% Damage', icon: '💥', apply: (p) => p.damage *= 1.2 },
             { id: 'speed', name: 'VELOCITY', desc: '+15% Move Speed', icon: '⚡', apply: (p) => p.speed *= 1.15 },
             { id: 'health', name: 'VITALITY', desc: '+25 Max HP', icon: '❤️', apply: (p) => { p.maxHealth += 25; p.health += 25; }},
@@ -220,11 +248,26 @@ export default function Game() {
             { id: 'lifesteal', name: 'VAMPIRIC', desc: '+5% Lifesteal', icon: '🧛', apply: (p) => p.lifesteal += 0.05 },
             { id: 'crit', name: 'CRITICAL', desc: '+10% Crit Chance', icon: '💀', apply: (p) => p.critChance += 0.1 },
             { id: 'critdmg', name: 'EXECUTE', desc: '+50% Crit Damage', icon: '⚔️', apply: (p) => p.critMultiplier += 0.5 },
-            { id: 'multi', name: 'MULTISHOT', desc: '+1 Projectile', icon: '🌟', apply: (p) => p.multishot += 1 },
-            { id: 'regen', name: 'REGENERATE', desc: '+2 HP/sec', icon: '💚', apply: (p) => p.regen += 2 },
-            { id: 'explosive', name: 'EXPLOSIVE', desc: 'Bullets Explode', icon: '💣', apply: (p) => p.explosiveRounds = true },
-            { id: 'shield', name: 'BARRIER', desc: '+20 Shield', icon: '🛡️', apply: (p) => p.shield += 20 }
+            { id: 'explosive', name: 'EXPLOSIVE', desc: 'Bullets Explode', icon: '💣', apply: (p) => p.explosiveRounds = true }
         ];
+        
+        const allUpgrades = [...statUpgrades];
+        
+        // Add weapon upgrades after wave 2
+        if (wave >= 2) {
+            const weaponKeys = Object.keys(WEAPONS).filter(w => w !== gs.player.currentWeapon);
+            weaponKeys.forEach(key => {
+                allUpgrades.push(createWeaponUpgrade(key));
+            });
+        }
+        
+        // Add gear upgrades after wave 3
+        if (wave >= 3) {
+            const gearKeys = Object.keys(GEAR);
+            gearKeys.forEach(key => {
+                allUpgrades.push(createGearUpgrade(key));
+            });
+        }
         
         const shuffled = allUpgrades.sort(() => Math.random() - 0.5);
         return shuffled.slice(0, 3);
@@ -306,20 +349,18 @@ export default function Game() {
             }
         }
 
+        // Check invulnerability
+        if (player.invulnerable && now > player.invulnerableUntil) {
+            player.invulnerable = false;
+        }
+
         // Auto-fire
-        const now = Date.now();
-        if (mouse.down && now - player.lastShot > player.fireRate) {
+        const weaponFireRate = player.fireRate * (WEAPONS[player.currentWeapon]?.fireRate || 1);
+        if (mouse.down && now - player.lastShot > weaponFireRate) {
             player.lastShot = now;
-            for (let i = 0; i < player.multishot; i++) {
-                const spread = player.multishot > 1 ? (i - (player.multishot - 1) / 2) * 0.15 : 0;
-                const angle = Math.atan2(mouse.y - player.y, mouse.x - player.x) + spread;
-                shootBullet(
-                    player.x + Math.cos(angle) * PLAYER_SIZE,
-                    player.y + Math.sin(angle) * PLAYER_SIZE,
-                    player.x + Math.cos(angle) * 100,
-                    player.y + Math.sin(angle) * 100
-                );
-            }
+            
+            // Use weapon system
+            shootWeapon(player.currentWeapon, player, mouse.x, mouse.y, shootBullet);
         }
 
         // Spawn enemies
@@ -367,8 +408,8 @@ export default function Game() {
             }
 
             // Draw bullet
-            ctx.fillStyle = b.isEnemy ? '#ff0066' : '#00ffff';
-            ctx.shadowColor = b.isEnemy ? '#ff0066' : '#00ffff';
+            ctx.fillStyle = b.color || (b.isEnemy ? '#ff0066' : '#00ffff');
+            ctx.shadowColor = b.color || (b.isEnemy ? '#ff0066' : '#00ffff');
             ctx.shadowBlur = 10;
             ctx.beginPath();
             ctx.arc(b.x, b.y, b.size, 0, Math.PI * 2);
@@ -379,7 +420,7 @@ export default function Game() {
             if (b.isEnemy) {
                 // Hit player
                 const dist = Math.hypot(player.x - b.x, player.y - b.y);
-                if (dist < PLAYER_SIZE + b.size) {
+                if (dist < PLAYER_SIZE + b.size && !player.invulnerable) {
                     let damage = b.damage;
                     if (player.shield > 0) {
                         const absorbed = Math.min(player.shield, damage);
@@ -423,17 +464,20 @@ export default function Game() {
                             player.health = Math.min(player.maxHealth, player.health + damage * player.lifesteal);
                         }
 
-                        // Explosive rounds
-                        if (player.explosiveRounds) {
+                        // Explosive rounds or explosive weapons
+                        if (player.explosiveRounds || b.explosive) {
+                            const radius = b.explosionRadius || 60;
                             createParticles(b.x, b.y, '#ff8800', 15, 8);
-                            triggerScreenShake(0.2);
+                            triggerScreenShake(b.explosionRadius ? 0.4 : 0.2);
                             // Damage nearby enemies
                             enemies.forEach(other => {
                                 if (other !== e) {
                                     const d = Math.hypot(other.x - b.x, other.y - b.y);
-                                    if (d < 60) {
-                                        other.health -= damage * 0.5;
+                                    if (d < radius) {
+                                        const explosionDamage = damage * (b.explosionRadius ? 0.7 : 0.5);
+                                        other.health -= explosionDamage;
                                         other.hitFlash = 5;
+                                        createDamageNumber(other.x, other.y - other.size, explosionDamage, false);
                                     }
                                 }
                             });
@@ -472,13 +516,19 @@ export default function Game() {
             // Shooting enemies
             if (e.shoots && now - e.lastShot > 2000) {
                 e.lastShot = now;
-                shootBullet(e.x, e.y, player.x, player.y, true);
+                shootEnemyBullet(e.x, e.y, player.x, player.y);
             }
 
             // Melee damage (much reduced)
             const dist = Math.hypot(player.x - e.x, player.y - e.y);
-            if (dist < PLAYER_SIZE + e.size) {
+            if (dist < PLAYER_SIZE + e.size && !player.invulnerable) {
                 let damage = ENEMY_MELEE_DAMAGE;
+                
+                // Bruiser has melee resistance
+                if (player.classId === 'bruiser') {
+                    damage *= 0.5;
+                }
+                
                 if (player.shield > 0) {
                     const absorbed = Math.min(player.shield, damage);
                     player.shield -= absorbed;
@@ -561,9 +611,10 @@ export default function Game() {
         const playerAngle = Math.atan2(mouse.y - player.y, mouse.x - player.x);
         
         // Player glow
-        ctx.shadowColor = '#00ffff';
-        ctx.shadowBlur = 20;
-        ctx.fillStyle = '#00ffff';
+        const playerColor = player.invulnerable ? '#ffff00' : '#00ffff';
+        ctx.shadowColor = playerColor;
+        ctx.shadowBlur = player.invulnerable ? 30 : 20;
+        ctx.fillStyle = playerColor;
         ctx.beginPath();
         ctx.arc(player.x, player.y, PLAYER_SIZE, 0, Math.PI * 2);
         ctx.fill();
@@ -592,6 +643,7 @@ export default function Game() {
         ctx.restore();
 
         // Update UI
+        const abilityReady = player.ability.ready || (now - player.ability.lastUsed > player.ability.cooldown * 1000);
         setUiState({
             health: Math.max(0, Math.round(player.health)),
             maxHealth: player.maxHealth,
@@ -599,7 +651,11 @@ export default function Game() {
             score: Math.round(gs.score),
             kills: gs.totalKills,
             combo: gs.combo,
-            shield: player.shield
+            shield: Math.round(player.shield),
+            weapon: WEAPONS[player.currentWeapon]?.name || 'Pistol',
+            abilityReady,
+            abilityName: player.ability.name,
+            abilityCooldown: abilityReady ? 0 : Math.ceil((player.ability.cooldown * 1000 - (now - player.ability.lastUsed)) / 1000)
         });
 
         if (!gameOver) {
@@ -629,6 +685,14 @@ export default function Game() {
         cancelAnimationFrame(animationRef.current);
         setGameOver(false);
         setFinalStats(null);
+        setClassSelected(false);
+        setSelectedClass(null);
+        setGameStarted(false);
+    }, []);
+
+    const handleClassSelect = useCallback((classData) => {
+        setSelectedClass(classData);
+        setClassSelected(true);
         startGame();
     }, [startGame]);
 
@@ -636,6 +700,63 @@ export default function Game() {
         const handleKeyDown = (e) => {
             if (gameStateRef.current) {
                 gameStateRef.current.keys[e.key.toLowerCase()] = true;
+                
+                // Ability activation
+                if ((e.key === ' ' || e.key === 'Spacebar') && gameStateRef.current.player) {
+                    const player = gameStateRef.current.player;
+                    const now = Date.now();
+                    
+                    if (player.ability.ready || now - player.ability.lastUsed > player.ability.cooldown * 1000) {
+                        player.ability.ready = false;
+                        player.ability.lastUsed = now;
+                        
+                        // Execute class ability
+                        if (player.classId === 'bruiser') {
+                            // Iron Shield - invulnerability for 3 seconds
+                            player.invulnerable = true;
+                            player.invulnerableUntil = now + 3000;
+                            sfxRef.current?.upgrade();
+                            triggerScreenShake(0.5);
+                        } else if (player.classId === 'gunslinger') {
+                            // Dodge Roll - quick dash
+                            const dashDist = 150;
+                            const angle = Math.atan2(
+                                gameStateRef.current.mouse.y - player.y,
+                                gameStateRef.current.mouse.x - player.x
+                            );
+                            player.x += Math.cos(angle) * dashDist;
+                            player.y += Math.sin(angle) * dashDist;
+                            player.invulnerable = true;
+                            player.invulnerableUntil = now + 500;
+                            sfxRef.current?.upgrade();
+                            createParticles(player.x, player.y, '#00ffff', 20, 8);
+                        } else if (player.classId === 'artillery') {
+                            // Bombardment - explosions around player
+                            for (let i = 0; i < 8; i++) {
+                                const angle = (Math.PI * 2 / 8) * i;
+                                const dist = 100 + Math.random() * 50;
+                                const x = player.x + Math.cos(angle) * dist;
+                                const y = player.y + Math.sin(angle) * dist;
+                                
+                                setTimeout(() => {
+                                    createParticles(x, y, '#ff8800', 20, 10);
+                                    triggerScreenShake(0.3);
+                                    
+                                    // Damage enemies in radius
+                                    gameStateRef.current.enemies.forEach(e => {
+                                        const d = Math.hypot(e.x - x, e.y - y);
+                                        if (d < 80) {
+                                            e.health -= player.damage * 5;
+                                            e.hitFlash = 5;
+                                            createDamageNumber(e.x, e.y - e.size, player.damage * 5, true);
+                                        }
+                                    });
+                                }, i * 100);
+                            }
+                            sfxRef.current?.waveComplete();
+                        }
+                    }
+                }
             }
         };
         
@@ -699,7 +820,7 @@ export default function Game() {
 
     return (
         <div className="w-full h-screen bg-[#0a0a0f] overflow-hidden relative touch-none">
-            {!gameStarted ? (
+            {!gameStarted && !classSelected ? (
                 <div className="absolute inset-0 flex flex-col items-center justify-center z-20 bg-gradient-to-b from-[#0a0a0f] via-[#1a0a1f] to-[#0a0a0f] pointer-events-auto">
                     <div className="relative">
                         <h1 className="text-6xl md:text-8xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-pink-500 to-red-500 tracking-tighter mb-2 animate-pulse">
@@ -710,7 +831,7 @@ export default function Game() {
                     <p className="text-gray-400 text-lg tracking-widest mb-12 uppercase">Arena Roguelike</p>
                     
                     <Button 
-                        onClick={startGame}
+                        onClick={() => setClassSelected(true)}
                         className="bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-500 hover:to-pink-500 text-white font-bold text-xl px-12 py-6 rounded-none border-2 border-white/20 transition-all duration-300 hover:scale-105 hover:border-white/50"
                     >
                         START CARNAGE
@@ -723,6 +844,10 @@ export default function Game() {
                     </div>
                 </div>
             ) : null}
+
+            {classSelected && !gameStarted && (
+                <ClassSelection onSelect={handleClassSelect} />
+            )}
 
             <canvas 
                 ref={canvasRef}

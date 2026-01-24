@@ -1,7 +1,7 @@
 import React from 'react';
 import { Heart, Shield, Skull, Zap } from 'lucide-react';
 
-export default function GameUI({ health, maxHealth, wave, score, kills, combo, shield }) {
+export default function GameUI({ health, maxHealth, wave, score, kills, combo, shield, weapon, abilityReady, abilityName, abilityCooldown }) {
     const healthPercent = (health / maxHealth) * 100;
     
     return (
@@ -57,11 +57,19 @@ export default function GameUI({ health, maxHealth, wave, score, kills, combo, s
 
             {/* Bottom stats */}
             <div className="absolute bottom-4 left-4 right-4 flex justify-between items-end">
-                {/* Kills */}
-                <div className="flex items-center gap-2">
-                    <Skull className="w-5 h-5 text-gray-400" />
-                    <span className="text-xl font-bold text-gray-300">{kills}</span>
-                    <span className="text-xs text-gray-500 uppercase">kills</span>
+                {/* Left side - Kills & Weapon */}
+                <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-2">
+                        <Skull className="w-5 h-5 text-gray-400" />
+                        <span className="text-xl font-bold text-gray-300">{kills}</span>
+                        <span className="text-xs text-gray-500 uppercase">kills</span>
+                    </div>
+                    {weapon && (
+                        <div className="flex items-center gap-2 bg-black/40 px-3 py-1 border border-cyan-500/30">
+                            <span className="text-xs text-gray-500">WEAPON</span>
+                            <span className="text-sm font-bold text-cyan-400">{weapon}</span>
+                        </div>
+                    )}
                 </div>
 
                 {/* Combo */}
@@ -77,22 +85,24 @@ export default function GameUI({ health, maxHealth, wave, score, kills, combo, s
                     </div>
                 )}
 
-                {/* Difficulty indicator */}
-                <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500 uppercase">Difficulty</span>
-                    <div className="flex gap-1">
-                        {[...Array(Math.min(5, Math.ceil(wave / 2)))].map((_, i) => (
-                            <div 
-                                key={i}
-                                className="w-2 h-4 bg-gradient-to-t from-red-600 to-orange-400"
-                                style={{ 
-                                    opacity: 0.5 + (i / 10),
-                                    boxShadow: wave > 8 ? '0 0 10px rgba(255,0,0,0.5)' : 'none'
-                                }}
-                            />
-                        ))}
+                {/* Ability */}
+                {abilityName && (
+                    <div className="flex flex-col items-center">
+                        <div className={`px-4 py-2 border-2 transition-all ${
+                            abilityReady 
+                                ? 'bg-green-500/20 border-green-500 animate-pulse' 
+                                : 'bg-gray-900/50 border-gray-700'
+                        }`}>
+                            <div className="text-xs text-gray-400 uppercase tracking-wider mb-1">Ability (Space)</div>
+                            <div className={`text-sm font-bold ${abilityReady ? 'text-green-400' : 'text-gray-500'}`}>
+                                {abilityName}
+                            </div>
+                            {!abilityReady && abilityCooldown > 0 && (
+                                <div className="text-xs text-gray-600 text-center mt-1">{abilityCooldown}s</div>
+                            )}
+                        </div>
                     </div>
-                </div>
+                )}
             </div>
 
             {/* Wave announcement */}
