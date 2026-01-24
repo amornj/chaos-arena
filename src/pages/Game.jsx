@@ -13,7 +13,8 @@ const PLAYER_SIZE = 20;
 const BULLET_SPEED = 15;
 const ENEMY_BASE_SPEED = 2;
 const ENEMY_BASE_HEALTH = 30;
-const ENEMY_BASE_DAMAGE = 10;
+const ENEMY_BASE_DAMAGE = 5;
+const ENEMY_MELEE_DAMAGE = 0.3; // Damage per frame when touching
 
 export default function Game() {
     const canvasRef = useRef(null);
@@ -120,11 +121,11 @@ export default function Game() {
                      types[Math.floor(Math.random() * (types.length - (wave % 5 === 0 ? 0 : 1)))];
 
         const enemyConfigs = {
-            basic: { health: 30, speed: 2, damage: 10, size: 18, color: '#ff4444', points: 10 },
-            fast: { health: 15, speed: 4.5, damage: 8, size: 14, color: '#ffaa00', points: 15 },
-            tank: { health: 100, speed: 1, damage: 25, size: 30, color: '#8844ff', points: 25 },
-            shooter: { health: 40, speed: 1.5, damage: 15, size: 20, color: '#44ff88', points: 20, shoots: true },
-            boss: { health: 300 * wave, speed: 1.5, damage: 30, size: 50, color: '#ff0066', points: 100 * wave }
+            basic: { health: 30, speed: 2, damage: 5, size: 18, color: '#ff4444', points: 10 },
+            fast: { health: 15, speed: 4.5, damage: 4, size: 14, color: '#ffaa00', points: 15 },
+            tank: { health: 100, speed: 1, damage: 12, size: 30, color: '#8844ff', points: 25 },
+            shooter: { health: 40, speed: 1.5, damage: 8, size: 20, color: '#44ff88', points: 20, shoots: true },
+            boss: { health: 300 * wave, speed: 1.5, damage: 15, size: 50, color: '#ff0066', points: 100 * wave }
         };
 
         const config = enemyConfigs[type];
@@ -474,19 +475,19 @@ export default function Game() {
                 shootBullet(e.x, e.y, player.x, player.y, true);
             }
 
-            // Melee damage
+            // Melee damage (much reduced)
             const dist = Math.hypot(player.x - e.x, player.y - e.y);
             if (dist < PLAYER_SIZE + e.size) {
-                let damage = e.damage * 0.05;
+                let damage = ENEMY_MELEE_DAMAGE;
                 if (player.shield > 0) {
                     const absorbed = Math.min(player.shield, damage);
                     player.shield -= absorbed;
                     damage -= absorbed;
                 }
                 player.health -= damage;
-                if (Math.random() < 0.1) {
-                    triggerScreenShake(0.1);
-                    createParticles(player.x, player.y, '#ff0000', 3, 2);
+                if (Math.random() < 0.02) {
+                    triggerScreenShake(0.05);
+                    createParticles(player.x, player.y, '#ff0000', 2, 2);
                 }
             }
 
@@ -607,16 +608,21 @@ export default function Game() {
     }, [isPaused, gameOver, shootBullet, spawnEnemy, createParticles, createDamageNumber, triggerScreenShake, generateUpgrades]);
 
     const startGame = useCallback(() => {
-        initGame();
-        const gs = gameStateRef.current;
-        if (gs) {
-            gs.startTime = Date.now();
-        }
         setGameStarted(true);
         setGameOver(false);
         setIsPaused(false);
-        sfxRef.current?.start();
-        animationRef.current = requestAnimationFrame(gameLoop);
+        
+        // Wait for canvas to be visible before initializing
+        setTimeout(() => {
+            initGame();
+            const gs = gameStateRef.current;
+            if (gs) {
+                gs.startTime = Date.now();
+                console.log('Game initialized:', gs.canvas.width, 'x', gs.canvas.height);
+            }
+            sfxRef.current?.start();
+            animationRef.current = requestAnimationFrame(gameLoop);
+        }, 50);
     }, [initGame, gameLoop]);
 
     const restartGame = useCallback(() => {
@@ -692,9 +698,9 @@ export default function Game() {
     }, []);
 
     return (
-        <div className="w-full h-screen bg-[#0a0a0f] overflow-hidden relative">
+        <div className="w-full h-screen bg-[#0a0a0f] overflow-hidden relative touch-none">
             {!gameStarted ? (
-                <div className="absolute inset-0 flex flex-col items-center justify-center z-20 bg-gradient-to-b from-[#0a0a0f] via-[#1a0a1f] to-[#0a0a0f]">
+                <div className="absolute inset-0 flex flex-col items-center justify-center z-20 bg-gradient-to-b from-[#0a0a0f] via-[#1a0a1f] to-[#0a0a0f] pointer-events-auto">
                     <div className="relative">
                         <h1 className="text-6xl md:text-8xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-pink-500 to-red-500 tracking-tighter mb-2 animate-pulse">
                             CARNAGE
@@ -720,8 +726,11 @@ export default function Game() {
 
             <canvas 
                 ref={canvasRef}
-                className="w-full h-full block"
-                style={{ display: gameStarted ? 'block' : 'none', touchAction: 'none' }}
+                className="absolute inset-0 w-full h-full"
+                style={{ 
+                    display: gameStarted ? 'block' : 'none',
+                    backgroundColor: '#0a0a0f'
+                }}
             />
 
             {gameStarted && !gameOver && (
