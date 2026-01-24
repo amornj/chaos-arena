@@ -71,6 +71,27 @@ export function createSFX() {
             playTone(400, 0.08, 'sawtooth', 0.05);
         },
         
+        shootFlamethrower: () => {
+            playTone(200, 0.03, 'sawtooth', 0.06);
+            playNoise(0.02, 0.04);
+        },
+        
+        shootSniper: () => {
+            playTone(1200, 0.02, 'sine', 0.12);
+            playTone(300, 0.05, 'square', 0.1);
+            playNoise(0.03, 0.08);
+        },
+        
+        shootLightning: () => {
+            playNoise(0.08, 0.15);
+            playTone(2000, 0.02, 'sine', 0.1);
+        },
+        
+        shootGrenade: () => {
+            playTone(400, 0.08, 'triangle', 0.1);
+            playTone(200, 0.1, 'square', 0.08);
+        },
+        
         hit: () => {
             playTone(200, 0.1, 'square', 0.15);
             playNoise(0.05, 0.1);
