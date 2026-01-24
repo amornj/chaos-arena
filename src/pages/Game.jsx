@@ -731,12 +731,46 @@ export default function Game() {
             // Bloater/Nuke explosion timer
             if (e.explodes) {
                 const timeSinceSpawn = (now - e.spawnTime) / 1000;
+                const timeLeft = e.fuseTime - timeSinceSpawn;
+
+                // Nuke dash attack before explosion
+                if (e.bigExplosion && timeLeft < 0.8 && timeLeft > 0 && !e.finalDash) {
+                    e.finalDash = true;
+                    const angleToPlayer = Math.atan2(player.y - e.y, player.x - e.x);
+                    e.dashVx = Math.cos(angleToPlayer) * 25;
+                    e.dashVy = Math.sin(angleToPlayer) * 25;
+                }
+
+                if (e.finalDash) {
+                    e.x += e.dashVx;
+                    e.y += e.dashVy;
+                    createParticles(e.x, e.y, '#ff00ff', 3, 6);
+                }
+
                 if (timeSinceSpawn >= e.fuseTime) {
-                    const radius = e.bigExplosion ? 150 : 80;
-                    createParticles(e.x, e.y, '#ff8800', e.bigExplosion ? 40 : 25, 12);
-                    triggerScreenShake(e.bigExplosion ? 1.5 : 0.6);
+                    const radius = e.bigExplosion ? 800 : 80;
+
+                    // Create massive explosion effect for nuke
+                    if (e.bigExplosion) {
+                        gs.explosions = gs.explosions || [];
+                        gs.explosions.push({
+                            x: e.x,
+                            y: e.y,
+                            radius: 0,
+                            maxRadius: radius,
+                            life: 1,
+                            color: '#ff00ff'
+                        });
+                        createParticles(e.x, e.y, '#ff00ff', 100, 20);
+                        createParticles(e.x, e.y, '#ff8800', 80, 18);
+                        createParticles(e.x, e.y, '#ffffff', 60, 15);
+                    } else {
+                        createParticles(e.x, e.y, '#ff8800', 25, 12);
+                    }
+
+                    triggerScreenShake(e.bigExplosion ? 3 : 0.6);
                     sfxRef.current?.kill();
-                    
+
                     // Damage player if in range
                     const distToPlayer = Math.hypot(player.x - e.x, player.y - e.y);
                     if (distToPlayer < radius && !player.invulnerable) {
@@ -750,7 +784,21 @@ export default function Game() {
                         player.health -= damage;
                         createDamageNumber(player.x, player.y - PLAYER_SIZE, damage, false);
                     }
-                    
+
+                    // Damage other enemies in blast
+                    if (e.bigExplosion) {
+                        enemies.forEach(other => {
+                            if (other !== e) {
+                                const d = Math.hypot(other.x - e.x, other.y - e.y);
+                                if (d < radius) {
+                                    other.health -= e.damage * 3;
+                                    other.hitFlash = 5;
+                                    createDamageNumber(other.x, other.y - other.size, e.damage * 3, false);
+                                }
+                            }
+                        });
+                    }
+
                     enemies.splice(i, 1);
                     continue;
                 }
@@ -866,6 +914,39 @@ export default function Game() {
                 ctx.fillStyle = e.color;
                 ctx.fillRect(e.x - e.size, e.y - e.size - 10, (e.health / e.maxHealth) * e.size * 2, 4);
             }
+        }
+
+        // Update and draw explosions
+        gs.explosions = gs.explosions || [];
+        for (let i = gs.explosions.length - 1; i >= 0; i--) {
+            const exp = gs.explosions[i];
+            exp.radius += (exp.maxRadius - exp.radius) * 0.15;
+            exp.life -= 0.02;
+
+            if (exp.life <= 0) {
+                gs.explosions.splice(i, 1);
+                continue;
+            }
+
+            // Draw expanding shockwave
+            ctx.globalAlpha = exp.life * 0.6;
+            ctx.strokeStyle = exp.color;
+            ctx.lineWidth = 8;
+            ctx.shadowColor = exp.color;
+            ctx.shadowBlur = 40;
+            ctx.beginPath();
+            ctx.arc(exp.x, exp.y, exp.radius, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Inner glow
+            ctx.fillStyle = exp.color;
+            ctx.shadowBlur = 60;
+            ctx.beginPath();
+            ctx.arc(exp.x, exp.y, exp.radius * 0.3, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.globalAlpha = 1;
+            ctx.shadowBlur = 0;
         }
 
         // Update particles
