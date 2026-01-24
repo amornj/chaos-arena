@@ -433,6 +433,7 @@ export default function Game() {
                 player.dashEndTime = now + 2000;
                 player.lastDash = now;
                 createParticles(player.x, player.y, '#00ffff', 20, 8);
+                sfxRef.current?.dash();
             }
         }
         
@@ -460,7 +461,7 @@ export default function Game() {
                 player.y = mouse.y;
                 createParticles(player.x, player.y, '#00ffff', 20, 10);
                 player.lastTeleport = now;
-                sfxRef.current?.upgrade();
+                sfxRef.current?.dash();
             }
         }
         
@@ -488,7 +489,7 @@ export default function Game() {
                 player.lastMedicine = now;
                 player.medicineReady = false;
                 setTimeout(() => { player.medicineReady = true; }, 30000);
-                sfxRef.current?.upgrade();
+                sfxRef.current?.healthPickup();
                 createParticles(player.x, player.y, '#00ff00', 20, 8);
             }
         }
@@ -499,7 +500,7 @@ export default function Game() {
                 player.lastTimeSlow = now;
                 gs.timeSlowUntil = now + 5000;
                 createParticles(player.x, player.y, '#8888ff', 30, 15);
-                sfxRef.current?.upgrade();
+                sfxRef.current?.chronosphere();
             }
         }
 
@@ -514,7 +515,7 @@ export default function Game() {
                     gs.orbitalStrikes = gs.orbitalStrikes || [];
                     gs.orbitalStrikes.push({ x: ox, y: oy, delay: i * 200, startTime: now });
                 }
-                sfxRef.current?.upgrade();
+                sfxRef.current?.orbitalStrike();
             }
         }
 
@@ -524,7 +525,7 @@ export default function Game() {
                 player.lastGravity = now;
                 gs.gravityWell = { x: mouse.x, y: mouse.y, endTime: now + 3000 };
                 createParticles(mouse.x, mouse.y, '#8844ff', 30, 15);
-                sfxRef.current?.upgrade();
+                sfxRef.current?.gravityWell();
             }
         }
 
@@ -545,7 +546,7 @@ export default function Game() {
                 });
                 createParticles(player.x, player.y, '#ffaa00', 50, 20);
                 triggerScreenShake(0.8);
-                sfxRef.current?.upgrade();
+                sfxRef.current?.shockwave();
             }
         }
 
@@ -565,7 +566,7 @@ export default function Game() {
                 player.lastNitro = now;
                 player.nitroUntil = now + 3000;
                 createParticles(player.x, player.y, '#ff6600', 30, 12);
-                sfxRef.current?.upgrade();
+                sfxRef.current?.nitroBoost();
             }
         }
         const nitroActive = player.nitroUntil && now < player.nitroUntil;
@@ -746,6 +747,7 @@ export default function Game() {
                             color: '#00ffff',
                             size: 5
                         });
+                        sfxRef.current?.droneShoot();
                     }
                 }
             });
@@ -783,6 +785,11 @@ export default function Game() {
             const spawnRate = Math.max(30, 60 - gs.wave * 2);
             if (gs.spawnTimer >= spawnRate) {
                 gs.spawnTimer = 0;
+                // Play boss spawn sound on boss waves
+                if (gs.wave % 5 === 0 && gs.enemiesSpawned === 0) {
+                    sfxRef.current?.bossSpawn();
+                    triggerScreenShake(0.8);
+                }
                 spawnEnemy();
                 gs.enemiesSpawned++;
             }
@@ -857,6 +864,7 @@ export default function Game() {
                     // Mortar lands - create explosion
                     createParticles(b.targetX, b.targetY, '#88ffcc', 20, 10);
                     triggerScreenShake(0.5);
+                    sfxRef.current?.explosion();
 
                     // Damage player if in range
                     const mortarRadius = 70;
@@ -1025,6 +1033,10 @@ export default function Game() {
                         const absorbed = Math.min(player.shield, damage);
                         player.shield -= absorbed;
                         damage -= absorbed;
+                        if (absorbed > 0) {
+                            sfxRef.current?.shieldHit();
+                            if (player.shield <= 0) sfxRef.current?.shieldBreak();
+                        }
                     }
 
                     // Absorb shield: convert damage to shield
@@ -1033,7 +1045,7 @@ export default function Game() {
                     }
 
                     player.health -= damage;
-                    sfxRef.current?.hit();
+                    if (damage > 0) sfxRef.current?.hit();
                     triggerScreenShake(0.3);
                     createParticles(player.x, player.y, '#ff0000', 8, 4);
                     createDamageNumber(player.x, player.y - PLAYER_SIZE, damage, false);
@@ -1051,7 +1063,7 @@ export default function Game() {
                             player.invulnerable = true;
                             player.invulnerableUntil = now + 2000;
                             createParticles(player.x, player.y, '#00ff00', 30, 10);
-                            sfxRef.current?.upgrade();
+                            sfxRef.current?.powerup();
                         } else {
                             setFinalStats({
                                 wave: gs.wave,
@@ -1101,6 +1113,7 @@ export default function Game() {
                             e.poisoned = true;
                             e.poisonDamage = 3;
                             e.poisonEnd = now + 3000;
+                            sfxRef.current?.poison();
                         }
 
                         // Freeze rounds: slow effect
@@ -1110,6 +1123,7 @@ export default function Game() {
                             e.originalSpeed = e.speed;
                             e.speed *= 0.5;
                             createParticles(e.x, e.y, '#88ddff', 8, 4);
+                            sfxRef.current?.freeze();
                         }
 
                         // Striker speeds up when hurt
@@ -1124,6 +1138,7 @@ export default function Game() {
                             const volatileRadius = 60;
                             createParticles(e.x, e.y, '#ffcc00', 20, 10);
                             triggerScreenShake(0.4);
+                            sfxRef.current?.explosionSmall();
 
                             // Damage player if in range
                             const distToPlayer = Math.hypot(player.x - e.x, player.y - e.y);
@@ -1144,7 +1159,11 @@ export default function Game() {
 
                         createDamageNumber(e.x, e.y - e.size, damage, isCrit);
                         createParticles(b.x, b.y, e.color, 5, 3);
-                        sfxRef.current?.enemyHit();
+                        if (isCrit) {
+                            sfxRef.current?.criticalHit();
+                        } else {
+                            sfxRef.current?.enemyHit();
+                        }
                         
                         // Lightning chain effect
                         if (b.lightning && b.chains > 0) {
@@ -1224,7 +1243,12 @@ export default function Game() {
                             gs.totalKills++;
                             gs.combo++;
                             gs.comboTimer = 120;
-                            sfxRef.current?.kill();
+                            // Play different sounds for boss vs regular kills
+                            if (e.type === 'boss') {
+                                sfxRef.current?.killBoss();
+                            } else {
+                                sfxRef.current?.kill();
+                            }
                             triggerScreenShake(e.type === 'boss' ? 1 : 0.15);
                             createParticles(e.x, e.y, e.color, e.type === 'boss' ? 30 : 15, e.type === 'boss' ? 10 : 6);
 
@@ -1235,6 +1259,7 @@ export default function Game() {
 
                             // Chain lightning on kill
                             if (player.hasChainLightning) {
+                                let chainedAny = false;
                                 enemies.forEach(other => {
                                     if (other !== e) {
                                         const d = Math.hypot(other.x - e.x, other.y - e.y);
@@ -1242,6 +1267,7 @@ export default function Game() {
                                             other.health -= player.damage * 0.5;
                                             other.hitFlash = 5;
                                             createParticles(other.x, other.y, '#00ffff', 5, 4);
+                                            chainedAny = true;
                                             // Draw lightning arc
                                             ctx.strokeStyle = '#00ffff';
                                             ctx.lineWidth = 2;
@@ -1252,6 +1278,7 @@ export default function Game() {
                                         }
                                     }
                                 });
+                                if (chainedAny) sfxRef.current?.chainLightning();
                             }
 
                             // Quickstep: speed boost on kill
@@ -1438,7 +1465,14 @@ export default function Game() {
                     }
 
                     triggerScreenShake(e.bigExplosion ? 3 : 0.6);
-                    sfxRef.current?.kill();
+                    // Play appropriate explosion sound
+                    if (e.hugeExplosion) {
+                        sfxRef.current?.explosionMega();
+                    } else if (e.bigExplosion) {
+                        sfxRef.current?.explosionBig();
+                    } else {
+                        sfxRef.current?.explosion();
+                    }
 
                     // Damage player if in range
                     const distToPlayer = Math.hypot(player.x - e.x, player.y - e.y);
@@ -1525,6 +1559,8 @@ export default function Game() {
                         size: bulletSize,
                         color: bulletColor
                     });
+                    // Play enemy shoot sound
+                    sfxRef.current?.enemyShoot();
                 }
             }
 
@@ -1548,6 +1584,7 @@ export default function Game() {
                     size: 10,
                     color: '#88ffcc'
                 });
+                sfxRef.current?.mortarLaunch();
             }
 
             // Cloud shooter (Shambler)
@@ -1606,6 +1643,10 @@ export default function Game() {
                             player.shield -= absorbed;
                             damage -= absorbed;
                             player.lastShieldHit = now;
+                            if (absorbed > 0) {
+                                sfxRef.current?.shieldHit();
+                                if (player.shield <= 0) sfxRef.current?.shieldBreak();
+                            }
                         }
 
                         // Absorb shield
@@ -1615,7 +1656,7 @@ export default function Game() {
 
                         player.health -= damage;
                         createDamageNumber(player.x, player.y - PLAYER_SIZE, damage, false);
-                        sfxRef.current?.hit();
+                        if (damage > 0) sfxRef.current?.hit();
                         triggerScreenShake(0.15);
                         createParticles(player.x, player.y, '#ff0000', 5, 3);
 
@@ -1871,6 +1912,14 @@ export default function Game() {
         }
 
         ctx.restore();
+
+        // Low health warning sound
+        if (player.health > 0 && player.health < player.maxHealth * 0.25) {
+            if (!player.lastLowHealthWarning || now - player.lastLowHealthWarning > 2000) {
+                player.lastLowHealthWarning = now;
+                sfxRef.current?.lowHealth();
+            }
+        }
 
         // Update UI
         const abilityReady = player.ability.ready || (now - player.ability.lastUsed > player.ability.cooldown * 1000);
