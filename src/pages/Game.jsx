@@ -6,6 +6,7 @@ import GameOverScreen from '@/components/game/GameOverScreen';
 import ClassSelection, { CLASSES } from '@/components/game/ClassSelection';
 import EnemyLog from '@/components/game/EnemyLog';
 import EnemyCounter from '@/components/game/EnemyCounter';
+import CheatPopup from '@/components/game/CheatPopup';
 import { createSFX } from '@/components/game/SoundEngine';
 import { shootWeapon, createWeaponUpgrade, createGearUpgrade, WEAPONS, GEAR } from '@/components/game/WeaponSystem';
 
@@ -45,6 +46,12 @@ export default function Game() {
     const [availableUpgrades, setAvailableUpgrades] = useState([]);
     const [showLog, setShowLog] = useState(false);
     const [sandboxMode, setSandboxMode] = useState(false);
+    const [showCheatPopup, setShowCheatPopup] = useState(false);
+    const [cheatsEnabled, setCheatsEnabled] = useState(false);
+    const [noWeaponCooldown, setNoWeaponCooldown] = useState(false);
+    const [blindEnemies, setBlindEnemies] = useState(false);
+    const konamiCodeRef = useRef([]);
+    const konamiSequence = ['arrowup', 'arrowup', 'arrowdown', 'arrowdown', 'arrowleft', 'arrowright', 'arrowleft', 'arrowright', 'b', 'a'];
 
     // Initialize sound effects
     useEffect(() => {
@@ -477,7 +484,7 @@ export default function Game() {
         const isInvisible = now < player.invisibleUntil;
 
         // Auto-fire
-        const weaponFireRate = player.fireRate * (WEAPONS[player.currentWeapon]?.fireRate || 1);
+        const weaponFireRate = noWeaponCooldown ? 0 : player.fireRate * (WEAPONS[player.currentWeapon]?.fireRate || 1);
         if (mouse.down && now - player.lastShot > weaponFireRate) {
             player.lastShot = now;
             
@@ -681,9 +688,16 @@ export default function Game() {
                 // Don't move, skip to rendering
             } else {
                 e.stunned = false;
-                
-                // Target decoy if player is invisible
-                const target = (isInvisible && gs.decoy) ? gs.decoy : player;
+
+                // Target decoy if player is invisible, or random spot if blind cheat is on
+                let target;
+                if (blindEnemies) {
+                    target = { x: canvas.width / 2, y: canvas.height / 2 };
+                } else if (isInvisible && gs.decoy) {
+                    target = gs.decoy;
+                } else {
+                    target = player;
+                }
                 
                 // Dasher logic
                 if (e.dashes) {
@@ -1015,12 +1029,50 @@ export default function Game() {
             if (gameStateRef.current) {
                 gameStateRef.current.keys[e.key.toLowerCase()] = true;
 
-                // Sandbox mode toggle
-                if ((e.key === '6' || e.code === 'Digit6') && gameStarted && !gameOver) {
-                    e.preventDefault();
-                    setShowLog(prev => !prev);
-                    setSandboxMode(true);
-                    return;
+                // Konami code detection
+                if (gameStarted && !gameOver) {
+                    konamiCodeRef.current.push(e.key.toLowerCase());
+                    if (konamiCodeRef.current.length > konamiSequence.length) {
+                        konamiCodeRef.current.shift();
+                    }
+
+                    if (konamiCodeRef.current.length === konamiSequence.length &&
+                        konamiCodeRef.current.every((key, i) => key === konamiSequence[i])) {
+                        setShowCheatPopup(true);
+                        konamiCodeRef.current = [];
+                        return;
+                    }
+                }
+
+                // Cheat keys
+                if (cheatsEnabled && gameStarted && !gameOver) {
+                    if (e.key.toLowerCase() === 'p') {
+                        e.preventDefault();
+                        setShowLog(prev => !prev);
+                        setSandboxMode(true);
+                        return;
+                    }
+                    if (e.key.toLowerCase() === 'c') {
+                        e.preventDefault();
+                        setNoWeaponCooldown(prev => !prev);
+                        return;
+                    }
+                    if (e.key.toLowerCase() === 'm') {
+                        e.preventDefault();
+                        setBlindEnemies(prev => !prev);
+                        return;
+                    }
+                    if (e.key.toLowerCase() === 'n') {
+                        e.preventDefault();
+                        if (gameStateRef.current) {
+                            gameStateRef.current.enemies.forEach(enemy => {
+                                createParticles(enemy.x, enemy.y, enemy.color, 20, 8);
+                            });
+                            gameStateRef.current.enemies = [];
+                            sfxRef.current?.waveComplete();
+                        }
+                        return;
+                    }
                 }
 
                 // Ability activation
@@ -1208,6 +1260,16 @@ export default function Game() {
                 <GameOverScreen 
                     stats={finalStats}
                     onRestart={restartGame}
+                />
+            )}
+
+            {showCheatPopup && (
+                <CheatPopup 
+                    onActivate={() => {
+                        setCheatsEnabled(true);
+                        setShowCheatPopup(false);
+                    }}
+                    onCancel={() => setShowCheatPopup(false)}
                 />
             )}
 
