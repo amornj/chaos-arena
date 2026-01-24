@@ -43,6 +43,7 @@ export default function Game() {
     const [finalStats, setFinalStats] = useState(null);
     const [availableUpgrades, setAvailableUpgrades] = useState([]);
     const [showLog, setShowLog] = useState(false);
+    const [sandboxMode, setSandboxMode] = useState(false);
 
     // Initialize sound effects
     useEffect(() => {
@@ -1012,7 +1013,14 @@ export default function Game() {
         const handleKeyDown = (e) => {
             if (gameStateRef.current) {
                 gameStateRef.current.keys[e.key.toLowerCase()] = true;
-                
+
+                // Sandbox mode toggle
+                if (e.key === '6' && gameStarted && !gameOver) {
+                    setShowLog(prev => !prev);
+                    setSandboxMode(true);
+                    return;
+                }
+
                 // Ability activation
                 if ((e.key === ' ' || e.key === 'Spacebar') && gameStateRef.current.player) {
                     const player = gameStateRef.current.player;
@@ -1199,7 +1207,66 @@ export default function Game() {
             )}
 
             {showLog && (
-                <EnemyLog onClose={() => setShowLog(false)} />
+                <EnemyLog 
+                    onClose={() => { setShowLog(false); setSandboxMode(false); }}
+                    sandboxMode={sandboxMode}
+                    onSpawnEnemy={(type) => {
+                        const gs = gameStateRef.current;
+                        if (!gs || !sandboxMode) return;
+                        
+                        const canvas = gs.canvas;
+                        const player = gs.player;
+                        const angle = Math.random() * Math.PI * 2;
+                        const dist = 200 + Math.random() * 100;
+                        const x = player.x + Math.cos(angle) * dist;
+                        const y = player.y + Math.sin(angle) * dist;
+                        
+                        const enemyConfigs = {
+                            basic: { health: 30, speed: 2, damage: 5, size: 18, color: '#ff4444', points: 10 },
+                            runner: { health: 15, speed: 2.4, damage: 2.5, size: 16, color: '#ff6666', points: 12 },
+                            brute: { health: 45, speed: 1.8, damage: 10, size: 22, color: '#cc2222', points: 18 },
+                            bloater: { health: 20, speed: 2.4, damage: 2.5, size: 22, color: '#ff8844', points: 20, explodes: true, fuseTime: 3 },
+                            spitter: { health: 25, speed: 1.5, damage: 6, size: 18, color: '#88ff44', points: 15, shoots: true },
+                            speeder: { health: 15, speed: 4, damage: 5, size: 16, color: '#ffff44', points: 25 },
+                            heavy: { health: 60, speed: 2, damage: 20, size: 36, color: '#880022', points: 35 },
+                            shambler: { health: 40, speed: 1.2, damage: 3, size: 20, color: '#8888ff', points: 25, cloudShooter: true },
+                            nuke: { health: 100, speed: 0.8, damage: 50, size: 45, color: '#ff00ff', points: 100, explodes: true, fuseTime: 5, bigExplosion: true },
+                            dasher: { health: 30, speed: 2, damage: 8, size: 18, color: '#00ffff', points: 22, dashes: true },
+                            boss: { health: 300, speed: 1.5, damage: 15, size: 50, color: '#ff0066', points: 100 }
+                        };
+                        
+                        const config = enemyConfigs[type];
+                        if (!config) return;
+                        
+                        const enemy = {
+                            x, y,
+                            health: config.health,
+                            maxHealth: config.health,
+                            speed: config.speed,
+                            damage: config.damage,
+                            size: config.size,
+                            color: config.color,
+                            points: config.points,
+                            type,
+                            shoots: config.shoots,
+                            cloudShooter: config.cloudShooter,
+                            lastShot: 0,
+                            lastMeleeHit: 0,
+                            hitFlash: 0,
+                            explodes: config.explodes,
+                            fuseTime: config.fuseTime,
+                            bigExplosion: config.bigExplosion,
+                            spawnTime: Date.now(),
+                            dashes: config.dashes,
+                            dashCooldown: 0,
+                            isDashing: false,
+                            dashAngle: 0
+                        };
+                        
+                        gs.enemies.push(enemy);
+                        createParticles(x, y, config.color, 15, 8);
+                    }}
+                />
             )}
         </div>
     );

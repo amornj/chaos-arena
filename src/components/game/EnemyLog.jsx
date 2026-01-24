@@ -14,7 +14,7 @@ const ENEMY_INFO = {
     boss: { name: 'BOSS', threat: 'CRITICAL', desc: 'ELITE COMBAT UNIT' }
 };
 
-export default function EnemyLog({ onClose }) {
+export default function EnemyLog({ onClose, sandboxMode, onSpawnEnemy }) {
     return (
         <div 
             className="absolute inset-0 z-50 flex items-center justify-center bg-black/90"
@@ -44,7 +44,9 @@ export default function EnemyLog({ onClose }) {
                     <h2 className="text-3xl font-black text-red-500 tracking-wider mb-1 animate-pulse">
                         === ENEMY DATABASE ===
                     </h2>
-                    <p className="text-green-500 text-sm">SYSTEM ACCESS GRANTED</p>
+                    <p className="text-green-500 text-sm">
+                        {sandboxMode ? 'SANDBOX MODE - CLICK TO SPAWN' : 'SYSTEM ACCESS GRANTED'}
+                    </p>
                 </div>
 
                 {/* Enemy list */}
@@ -52,7 +54,10 @@ export default function EnemyLog({ onClose }) {
                     {Object.entries(ENEMY_INFO).map(([type, info]) => (
                         <div 
                             key={type}
-                            className="bg-red-950/20 border-l-4 border-red-500 p-3 hover:bg-red-950/40 transition-colors"
+                            onClick={() => sandboxMode && onSpawnEnemy && onSpawnEnemy(type)}
+                            className={`bg-red-950/20 border-l-4 border-red-500 p-3 hover:bg-red-950/40 transition-colors ${
+                                sandboxMode ? 'cursor-pointer hover:border-green-500' : ''
+                            }`}
                         >
                             <div className="flex justify-between items-start mb-1">
                                 <span className="text-red-400 font-bold text-lg">
