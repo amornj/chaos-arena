@@ -901,7 +901,22 @@ export default function Game() {
             ctx.shadowBlur = b.flame ? 25 : (b.isCloud ? 20 : (b.sniper ? 15 : (b.lightning ? 30 : 10)));
             ctx.globalAlpha = b.flame ? 0.8 : (b.isCloud ? 0.6 : 1);
 
-            if (b.grenade) {
+            if (b.isCloud) {
+                // Draw cloud as multiple overlapping circles
+                ctx.globalAlpha = 0.4;
+                for (let j = 0; j < 5; j++) {
+                    const angle = (Math.PI * 2 / 5) * j;
+                    const cloudX = b.x + Math.cos(angle) * (b.size * 0.5);
+                    const cloudY = b.y + Math.sin(angle) * (b.size * 0.5);
+                    ctx.beginPath();
+                    ctx.arc(cloudX, cloudY, b.size * 0.8, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, b.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 1;
+            } else if (b.grenade) {
                 // Draw grenade as rotating square
                 const rotation = (now - b.spawnTime) * 0.01;
                 ctx.save();
