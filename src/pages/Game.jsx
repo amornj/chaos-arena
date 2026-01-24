@@ -350,11 +350,95 @@ export default function Game() {
         if (keys['a'] || keys['arrowleft']) dx -= 1;
         if (keys['d'] || keys['arrowright']) dx += 1;
         
+        // Sprint and stamina
+        const isMoving = dx !== 0 || dy !== 0;
+        const wantsSprint = keys.shift && isMoving;
+        
+        if (wantsSprint && player.stamina > 0) {
+            player.isSprinting = true;
+            player.stamina = Math.max(0, player.stamina - 0.5);
+            player.lastStaminaUse = now;
+        } else {
+            player.isSprinting = false;
+            if (now - player.lastStaminaUse > 1000) {
+                player.stamina = Math.min(player.maxStamina, player.stamina + 0.3);
+            }
+        }
+        
+        // Dash handling
+        if (keys.x && player.hasDash && !player.dashActive) {
+            if (!player.lastDash || now - player.lastDash > 5000) {
+                player.dashActive = true;
+                player.dashEndTime = now + 2000;
+                player.lastDash = now;
+                createParticles(player.x, player.y, '#00ffff', 20, 8);
+            }
+        }
+        
+        if (player.dashActive && now < player.dashEndTime) {
+            createParticles(player.x, player.y, '#00ffff', 2, 2);
+        } else if (player.dashActive) {
+            player.dashActive = false;
+        }
+        
+        // Afterimage
+        if (keys.v && player.hasAfterimage) {
+            if (!player.lastAfterimage || now - player.lastAfterimage > 20000) {
+                player.invisibleUntil = now + 10000;
+                player.lastAfterimage = now;
+                gs.decoy = { x: player.x, y: player.y, lifetime: 10000, spawnTime: now };
+                createParticles(player.x, player.y, '#8844ff', 30, 8);
+            }
+        }
+        
+        // Teleport
+        if (keys.t && player.hasTeleport) {
+            if (!player.lastTeleport || now - player.lastTeleport > 8000) {
+                createParticles(player.x, player.y, '#00ffff', 20, 10);
+                player.x = mouse.x;
+                player.y = mouse.y;
+                createParticles(player.x, player.y, '#00ffff', 20, 10);
+                player.lastTeleport = now;
+                sfxRef.current?.upgrade();
+            }
+        }
+        
+        // Daze
+        if (keys.c && player.hasDaze) {
+            if (!player.lastDaze || now - player.lastDaze > 12000) {
+                enemies.forEach(e => {
+                    const dist = Math.hypot(e.x - player.x, e.y - player.y);
+                    if (dist < 200) {
+                        e.stunned = true;
+                        e.stunEndTime = now + 3000;
+                        createParticles(e.x, e.y, '#ffff00', 10, 5);
+                    }
+                });
+                player.lastDaze = now;
+                createParticles(player.x, player.y, '#ffff00', 40, 15);
+                sfxRef.current?.upgrade();
+            }
+        }
+        
+        // Medicine
+        if (keys.m && player.hasMedicine && player.medicineReady) {
+            if (!player.lastMedicine || now - player.lastMedicine > 30000) {
+                player.health = Math.min(player.maxHealth, player.health + 25);
+                player.lastMedicine = now;
+                player.medicineReady = false;
+                setTimeout(() => { player.medicineReady = true; }, 30000);
+                sfxRef.current?.upgrade();
+                createParticles(player.x, player.y, '#00ff00', 20, 8);
+            }
+        }
+        
+        const speedMultiplier = player.dashActive ? 4 : (player.isSprinting ? 1.5 : 1);
+        
         if (dx !== 0 || dy !== 0) {
             const len = Math.sqrt(dx * dx + dy * dy);
             dx /= len; dy /= len;
-            player.x += dx * player.speed;
-            player.y += dy * player.speed;
+            player.x += dx * player.speed * speedMultiplier;
+            player.y += dy * player.speed * speedMultiplier;
         }
         
         // Keep player in bounds
@@ -546,7 +630,34 @@ export default function Game() {
                             enemies.splice(j, 1);
                         }
 
-                        if (b.piercing <= 0) {
+                        // Ricochet handling
+                        if (player.ricochetCount > 0 && b.ricochets === undefined) {
+                            b.ricochets = player.ricochetCount;
+                        }
+                        
+                        if (b.ricochets && b.ricochets > 0) {
+                            // Bounce to nearest enemy
+                            let nearest = null;
+                            let nearestDist = 999999;
+                            enemies.forEach(other => {
+                                if (other !== e) {
+                                    const d = Math.hypot(other.x - e.x, other.y - e.y);
+                                    if (d < nearestDist && d < 400) {
+                                        nearest = other;
+                                        nearestDist = d;
+                                    }
+                                }
+                            });
+                            if (nearest) {
+                                const angle = Math.atan2(nearest.y - e.y, nearest.x - e.x);
+                                b.vx = Math.cos(angle) * 15;
+                                b.vy = Math.sin(angle) * 15;
+                                b.ricochets--;
+                                createParticles(e.x, e.y, '#ffff00', 5, 5);
+                            } else {
+                                bullets.splice(i, 1);
+                            }
+                        } else if (b.piercing <= 0) {
                             bullets.splice(i, 1);
                         } else {
                             b.piercing--;
@@ -561,32 +672,42 @@ export default function Game() {
         for (let i = enemies.length - 1; i >= 0; i--) {
             const e = enemies[i];
             
-            // Dasher logic
-            if (e.dashes) {
-                if (e.isDashing) {
-                    e.x += Math.cos(e.dashAngle) * e.speed * 4;
-                    e.y += Math.sin(e.dashAngle) * e.speed * 4;
-                    
-                    if (now - e.dashStartTime > 1000) {
-                        e.isDashing = false;
-                        e.dashCooldown = now + 3000;
+            // Check if stunned
+            if (e.stunned && now < e.stunEndTime) {
+                // Don't move, skip to rendering
+            } else {
+                e.stunned = false;
+                
+                // Target decoy if player is invisible
+                const target = (isInvisible && gs.decoy) ? gs.decoy : player;
+                
+                // Dasher logic
+                if (e.dashes) {
+                    if (e.isDashing) {
+                        e.x += Math.cos(e.dashAngle) * e.speed * 4;
+                        e.y += Math.sin(e.dashAngle) * e.speed * 4;
+                        
+                        if (now - e.dashStartTime > 1000) {
+                            e.isDashing = false;
+                            e.dashCooldown = now + 3000;
+                        }
+                    } else {
+                        const angle = Math.atan2(target.y - e.y, target.x - e.x);
+                        e.x += Math.cos(angle) * e.speed;
+                        e.y += Math.sin(angle) * e.speed;
+                        
+                        if (now > e.dashCooldown && Math.random() < 0.01) {
+                            e.isDashing = true;
+                            e.dashStartTime = now;
+                            e.dashAngle = angle;
+                        }
                     }
                 } else {
-                    const angle = Math.atan2(player.y - e.y, player.x - e.x);
+                    // Normal movement toward target
+                    const angle = Math.atan2(target.y - e.y, target.x - e.x);
                     e.x += Math.cos(angle) * e.speed;
                     e.y += Math.sin(angle) * e.speed;
-                    
-                    if (now > e.dashCooldown && Math.random() < 0.01) {
-                        e.isDashing = true;
-                        e.dashStartTime = now;
-                        e.dashAngle = angle;
-                    }
                 }
-            } else {
-                // Normal movement toward player
-                const angle = Math.atan2(player.y - e.y, player.x - e.x);
-                e.x += Math.cos(angle) * e.speed;
-                e.y += Math.sin(angle) * e.speed;
             }
 
             // Bloater/Nuke explosion timer
@@ -776,18 +897,38 @@ export default function Game() {
             }
         }
 
+        // Draw decoy
+        if (gs.decoy && now < gs.decoy.spawnTime + gs.decoy.lifetime) {
+            ctx.globalAlpha = 0.5;
+            ctx.fillStyle = '#8844ff';
+            ctx.shadowColor = '#8844ff';
+            ctx.shadowBlur = 20;
+            ctx.beginPath();
+            ctx.arc(gs.decoy.x, gs.decoy.y, PLAYER_SIZE, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            ctx.globalAlpha = 1;
+        } else if (gs.decoy) {
+            gs.decoy = null;
+        }
+        
         // Draw player
         const playerAngle = Math.atan2(mouse.y - player.y, mouse.x - player.x);
         
+        // Player invisible effect
+        const playerVisible = !isInvisible;
+        ctx.globalAlpha = playerVisible ? 1 : 0.2;
+        
         // Player glow
-        const playerColor = player.invulnerable ? '#ffff00' : '#00ffff';
+        const playerColor = player.invulnerable ? '#ffff00' : (player.dashActive ? '#00ffff' : '#00ffff');
         ctx.shadowColor = playerColor;
-        ctx.shadowBlur = player.invulnerable ? 30 : 20;
+        ctx.shadowBlur = player.invulnerable ? 30 : (player.dashActive ? 40 : 20);
         ctx.fillStyle = playerColor;
         ctx.beginPath();
         ctx.arc(player.x, player.y, PLAYER_SIZE, 0, Math.PI * 2);
         ctx.fill();
         ctx.shadowBlur = 0;
+        ctx.globalAlpha = 1;
 
         // Player direction indicator
         ctx.strokeStyle = '#ffffff';
