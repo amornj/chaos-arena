@@ -5,6 +5,7 @@ import UpgradeModal from '@/components/game/UpgradeModal';
 import GameOverScreen from '@/components/game/GameOverScreen';
 import ClassSelection, { CLASSES } from '@/components/game/ClassSelection';
 import EnemyLog from '@/components/game/EnemyLog';
+import EnemyCounter from '@/components/game/EnemyCounter';
 import { createSFX } from '@/components/game/SoundEngine';
 import { shootWeapon, createWeaponUpgrade, createGearUpgrade, WEAPONS, GEAR } from '@/components/game/WeaponSystem';
 
@@ -1015,7 +1016,8 @@ export default function Game() {
                 gameStateRef.current.keys[e.key.toLowerCase()] = true;
 
                 // Sandbox mode toggle
-                if (e.key === '6' && gameStarted && !gameOver) {
+                if ((e.key === '6' || e.code === 'Digit6') && gameStarted && !gameOver) {
+                    e.preventDefault();
                     setShowLog(prev => !prev);
                     setSandboxMode(true);
                     return;
@@ -1188,7 +1190,10 @@ export default function Game() {
             />
 
             {gameStarted && !gameOver && (
-                <GameUI {...uiState} />
+                <>
+                    <GameUI {...uiState} />
+                    <EnemyCounter enemies={gameStateRef.current?.enemies || []} />
+                </>
             )}
 
             {showUpgrades && (
