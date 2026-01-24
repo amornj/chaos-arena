@@ -4,6 +4,7 @@ import GameUI from '@/components/game/GameUI';
 import UpgradeModal from '@/components/game/UpgradeModal';
 import GameOverScreen from '@/components/game/GameOverScreen';
 import ClassSelection, { CLASSES } from '@/components/game/ClassSelection';
+import EnemyLog from '@/components/game/EnemyLog';
 import { createSFX } from '@/components/game/SoundEngine';
 import { shootWeapon, createWeaponUpgrade, createGearUpgrade, WEAPONS, GEAR } from '@/components/game/WeaponSystem';
 
@@ -1169,7 +1170,10 @@ export default function Game() {
             />
 
             {gameStarted && !gameOver && (
-                <GameUI {...uiState} />
+                <>
+                    <GameUI {...uiState} />
+                    <EnemyLog wave={uiState.wave} enemies={gameStateRef.current?.enemies || []} />
+                </>
             )}
 
             {showUpgrades && (
