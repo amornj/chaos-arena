@@ -116,6 +116,24 @@ export function createSFX() {
             playTone(400, 0.08, 'sawtooth', 0.05);
         },
 
+        // Melee sounds
+        meleeSwing: () => {
+            playSweep(300, 800, 0.12, 'sawtooth', 0.1);
+            playNoise(0.08, 0.06, 2000, 'highpass');
+        },
+
+        meleeHit: () => {
+            playTone(200, 0.08, 'square', 0.12);
+            playNoise(0.06, 0.1, 600);
+            playTone(100, 0.1, 'sawtooth', 0.08);
+        },
+
+        meleeHeavy: () => {
+            playTone(80, 0.15, 'sawtooth', 0.15);
+            playNoise(0.1, 0.12, 400);
+            playTone(60, 0.2, 'sine', 0.1);
+        },
+
         shootFlamethrower: () => {
             playTone(200, 0.03, 'sawtooth', 0.06);
             playNoise(0.02, 0.04, 2000);

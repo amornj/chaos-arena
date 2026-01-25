@@ -472,6 +472,45 @@ export default function Game() {
         }
     }, [createParticles, createRingExplosion, createScreenFlash]);
 
+    // Create melee attack swing
+    const createMeleeAttack = useCallback((attackData) => {
+        const gs = gameStateRef.current;
+        if (!gs) return;
+
+        gs.meleeAttacks = gs.meleeAttacks || [];
+        gs.meleeAttacks.push({
+            ...attackData,
+            progress: 0,
+            hitEnemies: [] // Track which enemies were hit to prevent multi-hit
+        });
+
+        // Play melee sound
+        sfxRef.current?.meleeSwing();
+
+        // Create swing particles
+        const particleCount = 8;
+        for (let i = 0; i < particleCount; i++) {
+            const t = i / particleCount;
+            const particleAngle = attackData.angle - attackData.swingArc / 2 + attackData.swingArc * t;
+            const dist = attackData.range * 0.8;
+            gs.particles.push({
+                x: attackData.x + Math.cos(particleAngle) * dist,
+                y: attackData.y + Math.sin(particleAngle) * dist,
+                vx: Math.cos(particleAngle) * 2,
+                vy: Math.sin(particleAngle) * 2,
+                life: 1,
+                decay: 0.08,
+                size: 4,
+                color: attackData.color,
+                type: 'spark',
+                rotation: 0,
+                rotationSpeed: 0,
+                gravity: 0,
+                shrink: true
+            });
+        }
+    }, []);
+
     const createDamageNumber = useCallback((x, y, damage, isCrit = false) => {
         const gs = gameStateRef.current;
         if (!gs) return;
@@ -1143,7 +1182,7 @@ export default function Game() {
             }
 
             // Use weapon system
-            shootWeapon(player.currentWeapon, player, mouse.x, mouse.y, shootBullet);
+            shootWeapon(player.currentWeapon, player, mouse.x, mouse.y, shootBullet, createMeleeAttack);
         }
 
         // Spawn enemies
@@ -1508,6 +1547,26 @@ export default function Game() {
                     // Absorb shield: convert damage to shield
                     if (player.damageToShield > 0 && damage > 0) {
                         player.shield = Math.min((player.maxShield || 50), player.shield + damage * player.damageToShield);
+                    }
+
+                    // Reflective Shield: reflect 20% damage back to nearest enemy
+                    if (player.hasReflectiveShield && damage > 0) {
+                        const reflectDamage = damage * 0.2;
+                        let nearestEnemy = null;
+                        let nearestDist = 300; // Max reflect range
+                        enemies.forEach(en => {
+                            const d = Math.hypot(en.x - player.x, en.y - player.y);
+                            if (d < nearestDist) {
+                                nearestDist = d;
+                                nearestEnemy = en;
+                            }
+                        });
+                        if (nearestEnemy) {
+                            nearestEnemy.health -= reflectDamage;
+                            nearestEnemy.hitFlash = 5;
+                            createParticles(nearestEnemy.x, nearestEnemy.y, '#4488ff', 8, 5);
+                            createDamageNumber(nearestEnemy.x, nearestEnemy.y - nearestEnemy.size, reflectDamage, false);
+                        }
                     }
 
                     player.health -= damage;
@@ -1925,9 +1984,310 @@ export default function Game() {
             }
         }
 
+        // Update and process melee attacks
+        gs.meleeAttacks = gs.meleeAttacks || [];
+        for (let i = gs.meleeAttacks.length - 1; i >= 0; i--) {
+            const attack = gs.meleeAttacks[i];
+            const elapsed = now - attack.spawnTime;
+            attack.progress = Math.min(1, elapsed / attack.duration);
+
+            // Remove finished attacks
+            if (attack.progress >= 1) {
+                gs.meleeAttacks.splice(i, 1);
+                continue;
+            }
+
+            // Calculate current swing angle
+            const swingProgress = attack.progress;
+            const currentAngle = attack.angle - attack.swingArc / 2 + attack.swingArc * swingProgress;
+
+            // Draw melee swing arc
+            ctx.save();
+            ctx.translate(attack.x, attack.y);
+
+            // Draw swing trail (fading arc)
+            const trailSegments = 12;
+            for (let t = 0; t < trailSegments; t++) {
+                const trailProgress = Math.max(0, swingProgress - (t / trailSegments) * 0.5);
+                const trailAngle = attack.angle - attack.swingArc / 2 + attack.swingArc * trailProgress;
+                const alpha = (1 - t / trailSegments) * (1 - attack.progress) * 0.8;
+
+                ctx.globalAlpha = alpha;
+                ctx.strokeStyle = attack.color;
+                ctx.lineWidth = 8 - t * 0.5;
+                ctx.shadowColor = attack.color;
+                ctx.shadowBlur = 15;
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(
+                    Math.cos(trailAngle - Math.PI / 2 + attack.angle) * attack.range,
+                    Math.sin(trailAngle - Math.PI / 2 + attack.angle) * attack.range
+                );
+                ctx.stroke();
+            }
+
+            // Draw main swing blade
+            ctx.globalAlpha = 1 - attack.progress * 0.5;
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 4;
+            ctx.shadowColor = attack.color;
+            ctx.shadowBlur = 25;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(
+                Math.cos(currentAngle) * attack.range,
+                Math.sin(currentAngle) * attack.range
+            );
+            ctx.stroke();
+
+            // Draw arc edge glow
+            ctx.fillStyle = attack.color;
+            ctx.beginPath();
+            ctx.arc(
+                Math.cos(currentAngle) * attack.range,
+                Math.sin(currentAngle) * attack.range,
+                8 * (1 - attack.progress),
+                0, Math.PI * 2
+            );
+            ctx.fill();
+
+            ctx.shadowBlur = 0;
+            ctx.globalAlpha = 1;
+            ctx.restore();
+
+            // Hit detection for enemies in the swing arc
+            for (let j = enemies.length - 1; j >= 0; j--) {
+                const e = enemies[j];
+
+                // Skip if already hit this enemy with this attack
+                if (attack.hitEnemies.includes(j)) continue;
+
+                // Check if enemy is in range
+                const dist = Math.hypot(e.x - attack.x, e.y - attack.y);
+                if (dist > attack.range + e.size) continue;
+
+                // Check if enemy is within the swing arc
+                const angleToEnemy = Math.atan2(e.y - attack.y, e.x - attack.x);
+                let angleDiff = angleToEnemy - attack.angle;
+                // Normalize angle difference
+                while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+                while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+
+                // Check if within current swing progress
+                const swingStart = -attack.swingArc / 2;
+                const swingEnd = swingStart + attack.swingArc * attack.progress;
+                const inArc = angleDiff >= swingStart && angleDiff <= swingEnd;
+
+                if (!inArc && !attack.cleave) continue;
+                if (!inArc && attack.cleave && Math.abs(angleDiff) > attack.swingArc / 2) continue;
+
+                // Hit! Mark as hit
+                attack.hitEnemies.push(j);
+
+                // Calculate damage
+                let damage = attack.damage;
+                let isCrit = false;
+
+                // Speed scaling for jackhammer (damage = speed, no caps!)
+                if (attack.speedScaling) {
+                    damage = player.speed * 2; // Speed directly becomes damage
+                }
+
+                // Overpump bonus damage
+                if (attack.overpumpStacks) {
+                    damage += attack.overpumpStacks * 2.5; // Up to +10 damage at 4 stacks
+                }
+
+                // Pencil instant kill chance (John Wick mode)
+                if (attack.instantKillChance && Math.random() < attack.instantKillChance) {
+                    damage = e.health + 100; // Instant kill
+                    isCrit = true;
+                    createParticles(e.x, e.y, '#ff0000', 20, 10, 'spark');
+                    createScreenFlash('#ff0000', 0.3);
+                    sfxRef.current?.criticalHit();
+                }
+
+                // Backstab bonus (if enemy is facing away)
+                if (attack.backstab) {
+                    const enemyFacing = Math.atan2(player.y - e.y, player.x - e.x);
+                    const behindAngle = Math.abs(angleToEnemy - enemyFacing);
+                    if (behindAngle > Math.PI * 0.6) {
+                        damage *= attack.backstabMultiplier;
+                        isCrit = true;
+                        createParticles(e.x, e.y, '#ffff00', 15, 8, 'spark');
+                        sfxRef.current?.criticalHit();
+                    }
+                }
+
+                // Apply damage
+                e.health -= damage;
+                e.hitFlash = 8;
+                triggerScreenShake(attack.nuclear ? 0.6 : 0.15);
+                createDamageNumber(e.x, e.y - e.size, damage, isCrit);
+                createImpactSparks(e.x, e.y, angleToEnemy + Math.PI, attack.color);
+
+                // Nuclear explosion on hit!
+                if (attack.nuclear) {
+                    createRingExplosion(e.x, e.y, '#00ff00', attack.explosionRadius);
+                    createParticles(e.x, e.y, '#00ff00', 30, 15);
+                    createParticles(e.x, e.y, '#ffff00', 20, 12);
+                    createScreenFlash('#00ff00', 0.4);
+                    sfxRef.current?.explosionBig();
+
+                    // Damage all enemies in nuclear radius
+                    enemies.forEach((other, idx) => {
+                        if (idx === j) return;
+                        const nukeDist = Math.hypot(other.x - e.x, other.y - e.y);
+                        if (nukeDist < attack.explosionRadius) {
+                            const nukeDamage = damage * 0.8 * (1 - nukeDist / attack.explosionRadius);
+                            other.health -= nukeDamage;
+                            other.hitFlash = 10;
+                            createDamageNumber(other.x, other.y - other.size, nukeDamage, false);
+                            const knockAngle = Math.atan2(other.y - e.y, other.x - e.x);
+                            other.knockbackVx = Math.cos(knockAngle) * 15;
+                            other.knockbackVy = Math.sin(knockAngle) * 15;
+                        }
+                    });
+                }
+
+                // Overpump explosion (2+ pumps)
+                if (attack.overpumpStacks && attack.overpumpStacks >= 2 && !attack.overpumpExploded) {
+                    attack.overpumpExploded = true;
+                    const explosionRadius = 60 + attack.overpumpStacks * 20;
+                    createRingExplosion(e.x, e.y, '#ff8800', explosionRadius);
+                    createParticles(e.x, e.y, '#ff8800', 25, 12);
+                    sfxRef.current?.explosion();
+
+                    enemies.forEach((other, idx) => {
+                        if (idx === j) return;
+                        const pumpDist = Math.hypot(other.x - e.x, other.y - e.y);
+                        if (pumpDist < explosionRadius) {
+                            const pumpDamage = attack.overpumpStacks * 3;
+                            other.health -= pumpDamage;
+                            other.hitFlash = 5;
+                            createDamageNumber(other.x, other.y - other.size, pumpDamage, false);
+                        }
+                    });
+                }
+
+                // Knockback
+                if (attack.knockback > 0) {
+                    const knockAngle = Math.atan2(e.y - attack.y, e.x - attack.x);
+                    e.knockbackVx = Math.cos(knockAngle) * attack.knockback;
+                    e.knockbackVy = Math.sin(knockAngle) * attack.knockback;
+                }
+
+                // Stun
+                if (attack.stun) {
+                    e.stunned = true;
+                    e.stunnedEnd = now + attack.stunDuration;
+                }
+
+                // Bleed DOT
+                if (attack.bleed) {
+                    e.bleeding = true;
+                    e.bleedDamage = attack.bleedDamage;
+                    e.bleedEnd = now + attack.bleedDuration;
+                    e.lastBleedTick = now;
+                }
+
+                // Lifesteal
+                if (attack.lifesteal > 0) {
+                    const healAmount = damage * attack.lifesteal;
+                    player.health = Math.min(player.maxHealth, player.health + healAmount);
+                    createParticles(player.x, player.y, '#00ff00', 5, 4);
+                }
+
+                // Ground slam AoE
+                if (attack.groundSlam && !attack.slamTriggered) {
+                    attack.slamTriggered = true;
+                    createRingExplosion(attack.x, attack.y, attack.color, attack.slamRadius);
+                    triggerScreenShake(0.4);
+                    sfxRef.current?.explosion();
+
+                    // Damage all enemies in slam radius
+                    enemies.forEach((other, idx) => {
+                        if (idx === j) return;
+                        const slamDist = Math.hypot(other.x - attack.x, other.y - attack.y);
+                        if (slamDist < attack.slamRadius) {
+                            other.health -= damage * 0.5;
+                            other.hitFlash = 5;
+                            const knockAngle = Math.atan2(other.y - attack.y, other.x - attack.x);
+                            other.knockbackVx = Math.cos(knockAngle) * attack.knockback * 0.5;
+                            other.knockbackVy = Math.sin(knockAngle) * attack.knockback * 0.5;
+                            createDamageNumber(other.x, other.y - other.size, damage * 0.5, false);
+                        }
+                    });
+                }
+
+                // Check if enemy died
+                if (e.health <= 0) {
+                    const scoreMultiplier = player.scoreMultiplier || 1;
+                    gs.score += e.points * (1 + gs.combo * 0.1) * scoreMultiplier;
+                    gs.kills++;
+                    gs.totalKills++;
+                    gs.combo++;
+                    gs.comboTimer = 120;
+
+                    if (e.type === 'boss') {
+                        sfxRef.current?.killBoss();
+                    } else {
+                        sfxRef.current?.kill();
+                    }
+
+                    triggerScreenShake(e.type === 'boss' ? 1 : 0.2);
+                    createDeathExplosion(e.x, e.y, e.color, e.size, e.type === 'boss');
+
+                    // Adrenaline heal
+                    if (player.adrenalineHeal > 0) {
+                        player.health = Math.min(player.maxHealth, player.health + player.adrenalineHeal);
+                    }
+
+                    enemies.splice(j, 1);
+                }
+
+                // If not cleave, stop after first hit
+                if (!attack.cleave) break;
+            }
+        }
+
         // Update and draw enemies
         for (let i = enemies.length - 1; i >= 0; i--) {
             const e = enemies[i];
+
+            // Apply knockback
+            if (e.knockbackVx || e.knockbackVy) {
+                e.x += e.knockbackVx || 0;
+                e.y += e.knockbackVy || 0;
+                e.knockbackVx = (e.knockbackVx || 0) * 0.85;
+                e.knockbackVy = (e.knockbackVy || 0) * 0.85;
+                if (Math.abs(e.knockbackVx) < 0.1) e.knockbackVx = 0;
+                if (Math.abs(e.knockbackVy) < 0.1) e.knockbackVy = 0;
+            }
+
+            // Stun check
+            if (e.stunned && now > e.stunnedEnd) {
+                e.stunned = false;
+            }
+
+            // Bleed tick
+            if (e.bleeding) {
+                if (now > e.bleedEnd) {
+                    e.bleeding = false;
+                } else if (now - e.lastBleedTick > 500) {
+                    e.lastBleedTick = now;
+                    e.health -= e.bleedDamage;
+                    createParticles(e.x, e.y, '#ff0000', 3, 3);
+                    createDamageNumber(e.x, e.y - e.size, e.bleedDamage, false);
+                    if (e.health <= 0) {
+                        createDeathExplosion(e.x, e.y, e.color, e.size, false);
+                        enemies.splice(i, 1);
+                        gs.kills++;
+                        gs.totalKills++;
+                        continue;
+                    }
+                }
+            }
 
             // Goliath regeneration
             if (e.regenerates && now - e.lastRegen > 500) {
@@ -2610,21 +2970,39 @@ export default function Game() {
         
         // Draw player
         const playerAngle = Math.atan2(mouse.y - player.y, mouse.x - player.x);
-        
+
+        // Overpump vibration effect
+        let vibrateX = 0, vibrateY = 0;
+        const isPumping = player.pumpingUntil && now < player.pumpingUntil;
+        if (isPumping || (player.overpumpStacks > 0 && player.currentWeapon === 'overpump_jackhammer')) {
+            const intensity = (player.overpumpStacks || 1) * 2;
+            vibrateX = (Math.random() - 0.5) * intensity;
+            vibrateY = (Math.random() - 0.5) * intensity;
+        }
+
         // Player invisible effect
         const playerVisible = !isInvisible;
         ctx.globalAlpha = playerVisible ? 1 : 0.2;
-        
-        // Player glow
-        const playerColor = player.invulnerable ? '#ffff00' : (player.dashActive ? '#00ffff' : '#00ffff');
+
+        // Player glow (orange when pumped up)
+        const pumpedUp = player.overpumpStacks > 0 && player.currentWeapon === 'overpump_jackhammer';
+        const playerColor = player.invulnerable ? '#ffff00' : (pumpedUp ? '#ff8800' : (player.dashActive ? '#00ffff' : '#00ffff'));
         ctx.shadowColor = playerColor;
-        ctx.shadowBlur = player.invulnerable ? 30 : (player.dashActive ? 40 : 20);
+        ctx.shadowBlur = player.invulnerable ? 30 : (pumpedUp ? 35 + player.overpumpStacks * 5 : (player.dashActive ? 40 : 20));
         ctx.fillStyle = playerColor;
         ctx.beginPath();
-        ctx.arc(player.x, player.y, PLAYER_SIZE, 0, Math.PI * 2);
+        ctx.arc(player.x + vibrateX, player.y + vibrateY, PLAYER_SIZE, 0, Math.PI * 2);
         ctx.fill();
         ctx.shadowBlur = 0;
         ctx.globalAlpha = 1;
+
+        // Overpump stack indicator
+        if (pumpedUp) {
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 14px Inter';
+            ctx.textAlign = 'center';
+            ctx.fillText(`PUMP x${player.overpumpStacks}`, player.x, player.y - PLAYER_SIZE - 25);
+        }
 
         // Player direction indicator
         ctx.strokeStyle = '#ffffff';
@@ -2697,7 +3075,7 @@ export default function Game() {
         if (!gameOver) {
             animationRef.current = requestAnimationFrame(gameLoop);
         }
-    }, [isPaused, gameOver, shootBullet, spawnEnemy, createParticles, createDamageNumber, triggerScreenShake, generateUpgrades, createBulletTrail, createDeathExplosion, createImpactSparks, createRingExplosion, createScreenFlash]);
+    }, [isPaused, gameOver, shootBullet, spawnEnemy, createParticles, createDamageNumber, triggerScreenShake, generateUpgrades, createBulletTrail, createDeathExplosion, createImpactSparks, createRingExplosion, createScreenFlash, createMeleeAttack]);
 
     const startGame = useCallback((classData) => {
         setGameStarted(true);
@@ -2749,6 +3127,20 @@ export default function Game() {
                         konamiCodeRef.current.every((key, i) => key === konamiSequence[i])) {
                         setShowCheatPopup(true);
                         konamiCodeRef.current = [];
+                        return;
+                    }
+                }
+
+                // Overpump Jackhammer - P to pump (only when holding the weapon)
+                if (gameStarted && !gameOver && !cheatsEnabled) {
+                    const gs = gameStateRef.current;
+                    if (gs && e.key.toLowerCase() === 'p' && gs.player.currentWeapon === 'overpump_jackhammer') {
+                        e.preventDefault();
+                        gs.player.overpumpStacks = Math.min(4, (gs.player.overpumpStacks || 0) + 1);
+                        gs.player.pumpingUntil = Date.now() + 300; // Vibrate for 300ms
+                        sfxRef.current?.meleeHeavy();
+                        // Visual feedback
+                        createParticles(gs.player.x, gs.player.y, '#ff8800', 8, 5);
                         return;
                     }
                 }

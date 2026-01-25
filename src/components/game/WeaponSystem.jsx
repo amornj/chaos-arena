@@ -305,6 +305,178 @@ export const WEAPONS = {
         homingStrength: 0.15,
         explosive: true,
         explosionRadius: 30
+    },
+
+    // === MELEE WEAPONS ===
+    sword: {
+        name: 'Sword',
+        damage: 2.5,
+        fireRate: 0.5,
+        melee: true,
+        range: 75,
+        swingArc: Math.PI * 0.6,
+        color: '#aaaaff',
+        knockback: 5,
+        cleave: true,
+        desc: 'A trusty blade'
+    },
+    dagger: {
+        name: 'Dagger',
+        damage: 1.2,
+        fireRate: 0.2,
+        melee: true,
+        range: 45,
+        swingArc: Math.PI * 0.4,
+        color: '#44ffaa',
+        knockback: 2,
+        cleave: false,
+        desc: 'Quick stabs, low damage'
+    },
+    bayonet: {
+        name: 'Bayonet',
+        damage: 3.5,
+        fireRate: 0.3,
+        melee: true,
+        range: 70,
+        swingArc: Math.PI * 0.3,
+        color: '#888888',
+        knockback: 4,
+        cleave: false,
+        thrust: true,
+        desc: 'Fast and deadly thrust'
+    },
+    greatsword: {
+        name: 'Greatsword',
+        damage: 6,
+        fireRate: 1.2,
+        melee: true,
+        range: 100,
+        swingArc: Math.PI * 0.8,
+        color: '#ff6644',
+        knockback: 15,
+        cleave: true,
+        desc: 'Slow but devastating'
+    },
+    jackhammer: {
+        name: 'Jackhammer',
+        damage: 1,
+        fireRate: 0.08,
+        melee: true,
+        range: 50,
+        swingArc: Math.PI * 0.3,
+        color: '#ffaa00',
+        knockback: 2,
+        cleave: false,
+        speedScaling: true, // damage = speed
+        desc: 'Damage scales with your speed!'
+    },
+    laser_sword: {
+        name: 'Laser Sword',
+        damage: 4,
+        fireRate: 0.35,
+        melee: true,
+        range: 85,
+        swingArc: Math.PI * 0.5,
+        color: '#00ffff',
+        knockback: 3,
+        cleave: true,
+        desc: 'Elegant weapon for a civilized age'
+    },
+    laser_dagger: {
+        name: 'Laser Dagger',
+        damage: 2.5,
+        fireRate: 0.12,
+        melee: true,
+        range: 50,
+        swingArc: Math.PI * 0.4,
+        color: '#ff00ff',
+        knockback: 1,
+        cleave: false,
+        desc: 'Blindingly fast energy blade'
+    },
+    overpump_jackhammer: {
+        name: 'Overpump Jackhammer',
+        damage: 2,
+        fireRate: 0.5,
+        melee: true,
+        range: 55,
+        swingArc: Math.PI * 0.4,
+        color: '#ff8800',
+        knockback: 8,
+        cleave: true,
+        overpump: true, // Press P to pump, up to 4 times
+        desc: 'Press P to PUMP IT UP! (2+ pumps = explosion)'
+    },
+    rapier: {
+        name: 'Rapier',
+        damage: 2,
+        fireRate: 0.4,
+        melee: true,
+        range: 180, // LOOOOONG
+        swingArc: Math.PI * 0.15,
+        color: '#ddddff',
+        knockback: 2,
+        cleave: false,
+        thrust: true,
+        desc: 'Looooooooooong reach'
+    },
+
+    // === SUPER RARE MELEE ===
+    fish: {
+        name: 'Fish',
+        damage: 999999,
+        fireRate: 0.5,
+        melee: true,
+        range: 60,
+        swingArc: Math.PI * 0.5,
+        color: '#3399ff',
+        knockback: 50,
+        cleave: true,
+        superRare: true,
+        rarity: 0.0000001,
+        desc: '...how did you get this?'
+    },
+    nuclear_sword: {
+        name: 'Nuclear Sword',
+        damage: 8,
+        fireRate: 0.6,
+        melee: true,
+        range: 90,
+        swingArc: Math.PI * 0.6,
+        color: '#00ff00',
+        knockback: 10,
+        cleave: true,
+        nuclear: true, // Explodes on hit
+        explosionRadius: 120,
+        superRare: true,
+        desc: 'Uh oh...'
+    },
+    bare_hands: {
+        name: 'Bare Hands',
+        damage: 6,
+        fireRate: 0.01, // Basically no cooldown
+        melee: true,
+        range: 40,
+        swingArc: Math.PI * 0.5,
+        color: '#ffddaa',
+        knockback: 3,
+        cleave: false,
+        superRare: true,
+        desc: 'You toss your weapons away. Pure skill.'
+    },
+    pencil: {
+        name: 'Pencil',
+        damage: 10,
+        fireRate: 0.25,
+        melee: true,
+        range: 35,
+        swingArc: Math.PI * 0.3,
+        color: '#ffcc00',
+        knockback: 0,
+        cleave: false,
+        superRare: true,
+        instantKillChance: 0.15, // 15% instant kill
+        desc: 'John Wick time.'
     }
 };
 
@@ -619,6 +791,13 @@ export const GEAR = {
         icon: '🔋',
         desc: 'Press Q: 3x damage for 5s (20s CD)',
         apply: (p) => p.hasOvercharge = true
+    },
+    reflective_shield: {
+        name: 'Reflective Shield',
+        icon: '🛡️',
+        desc: 'Reflects 20% of incoming damage back (ONE TIME PURCHASE)',
+        apply: (p) => p.hasReflectiveShield = true,
+        unique: true // Can only be purchased once
     }
 };
 
@@ -646,10 +825,54 @@ export function createGearUpgrade(gearKey) {
     };
 }
 
-export function shootWeapon(weapon, player, targetX, targetY, createBullet) {
+export function shootWeapon(weapon, player, targetX, targetY, createBullet, createMeleeAttack) {
     const weaponData = WEAPONS[weapon];
     const baseAngle = Math.atan2(targetY - player.y, targetX - player.x);
     const multishot = player.multishot || 1;
+
+    // Melee weapon handling
+    if (weaponData.melee) {
+        if (createMeleeAttack) {
+            createMeleeAttack({
+                x: player.x,
+                y: player.y,
+                angle: baseAngle,
+                range: weaponData.range,
+                swingArc: weaponData.swingArc,
+                damage: player.damage * weaponData.damage,
+                color: weaponData.color,
+                knockback: weaponData.knockback || 0,
+                cleave: weaponData.cleave || false,
+                bleed: weaponData.bleed || false,
+                bleedDamage: weaponData.bleedDamage || 0,
+                bleedDuration: weaponData.bleedDuration || 0,
+                stun: weaponData.stun || false,
+                stunDuration: weaponData.stunDuration || 0,
+                groundSlam: weaponData.groundSlam || false,
+                slamRadius: weaponData.slamRadius || 0,
+                backstab: weaponData.backstab || false,
+                backstabMultiplier: weaponData.backstabMultiplier || 1,
+                thrust: weaponData.thrust || false,
+                lifesteal: weaponData.lifesteal || 0,
+                comboHits: weaponData.comboHits || 1,
+                comboWindow: weaponData.comboWindow || 0,
+                // New special properties
+                speedScaling: weaponData.speedScaling || false,
+                overpump: weaponData.overpump || false,
+                overpumpStacks: player.overpumpStacks || 0,
+                nuclear: weaponData.nuclear || false,
+                explosionRadius: weaponData.explosionRadius || 0,
+                instantKillChance: weaponData.instantKillChance || 0,
+                spawnTime: Date.now(),
+                duration: 200
+            });
+            // Reset overpump stacks after attack
+            if (weaponData.overpump) {
+                player.overpumpStacks = 0;
+            }
+        }
+        return;
+    }
 
     // Burst fire handling
     if (weaponData.burst) {
