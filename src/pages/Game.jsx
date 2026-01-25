@@ -44,6 +44,8 @@ export default function Game() {
     });
     const [finalStats, setFinalStats] = useState(null);
     const [availableUpgrades, setAvailableUpgrades] = useState([]);
+    const [rerolls, setRerolls] = useState(3);
+    const maxRerolls = 3;
     const [showLog, setShowLog] = useState(false);
     const [sandboxMode, setSandboxMode] = useState(false);
     const [showCheatPopup, setShowCheatPopup] = useState(false);
@@ -181,42 +183,55 @@ export default function Game() {
 
         // Enemy types based on wave
         const types = ['basic', 'runner'];
-        if (wave >= 2) types.push('brute');
+        if (wave >= 2) types.push('brute', 'grunt');
         if (wave >= 3) types.push('bloater', 'spitter');
-        if (wave >= 4) types.push('blitzer', 'detonator');
-        if (wave >= 5) types.push('speeder', 'heavy');
-        if (wave >= 6) types.push('gunner', 'volatile');
-        if (wave >= 7) types.push('shambler', 'striker');
-        if (wave >= 8) types.push('sniper', 'cluster');
-        if (wave >= 9) types.push('dasher', 'phantom');
-        if (wave >= 10) types.push('juggernaut', 'inferno');
-        if (wave >= 11) types.push('goliath', 'mortar');
-        if (wave >= 12) types.push('nuke', 'ironclad');
-        if (wave >= 15) types.push('megaton');
+        if (wave >= 4) types.push('blitzer', 'detonator', 'acid_spitter');
+        if (wave >= 5) types.push('speeder', 'heavy', 'crawler');
+        if (wave >= 6) types.push('gunner', 'volatile', 'plasma_spitter');
+        if (wave >= 7) types.push('shambler', 'striker', 'charger');
+        if (wave >= 8) types.push('sniper', 'cluster', 'wraith');
+        if (wave >= 9) types.push('dasher', 'phantom', 'berserker_enemy');
+        if (wave >= 10) types.push('juggernaut', 'inferno', 'demolisher');
+        if (wave >= 11) types.push('goliath', 'mortar', 'siege');
+        if (wave >= 12) types.push('nuke', 'ironclad', 'titan_enemy');
+        if (wave >= 15) types.push('megaton', 'apocalypse');
 
-        const type = wave % 5 === 0 && gs.enemiesSpawned === 0 ? 'boss' :
+        // Boss variants based on wave number
+        let bossType = 'boss_warlord';
+        if (wave >= 10) bossType = ['boss_warlord', 'boss_titan'][Math.floor(Math.random() * 2)];
+        if (wave >= 15) bossType = ['boss_warlord', 'boss_titan', 'boss_overlord'][Math.floor(Math.random() * 3)];
+        if (wave >= 20) bossType = ['boss_titan', 'boss_overlord', 'boss_destroyer'][Math.floor(Math.random() * 3)];
+
+        const type = wave % 5 === 0 && gs.enemiesSpawned === 0 ? bossType :
                      types[Math.floor(Math.random() * types.length)];
 
         const enemyConfigs = {
-            // Basic enemies
+            // === BASIC VARIANTS ===
             basic: { health: 30, speed: 2, damage: 5, size: 18, color: '#ff4444', points: 10 },
             runner: { health: 15, speed: 2.4, damage: 2.5, size: 16, color: '#ff6666', points: 12 },
+            grunt: { health: 40, speed: 1.6, damage: 8, size: 20, color: '#dd3333', points: 14 },
+            crawler: { health: 20, speed: 2.8, damage: 4, size: 14, color: '#ff5555', points: 16, lowProfile: true },
 
-            // Tanky enemies
+            // === TANK VARIANTS ===
             brute: { health: 45, speed: 1.8, damage: 10, size: 22, color: '#cc2222', points: 18 },
             heavy: { health: 60, speed: 2, damage: 20, size: 36, color: '#880022', points: 35 },
+            charger: { health: 55, speed: 1.5, damage: 18, size: 26, color: '#aa1111', points: 28, charges: true },
             juggernaut: { health: 200, speed: 0.8, damage: 25, size: 45, color: '#660000', points: 60 },
             goliath: { health: 120, speed: 1.4, damage: 15, size: 38, color: '#551122', points: 50, regenerates: true },
             ironclad: { health: 100, speed: 1.6, damage: 12, size: 30, color: '#444466', points: 45, explosionResist: true },
+            titan_enemy: { health: 180, speed: 1.0, damage: 22, size: 42, color: '#553344', points: 70, armor: 0.3 },
+            demolisher: { health: 90, speed: 1.8, damage: 15, size: 28, color: '#662244', points: 45, explosiveAttack: true },
 
-            // Speed enemies
+            // === SPEED VARIANTS ===
             speeder: { health: 15, speed: 4, damage: 5, size: 16, color: '#ffff44', points: 25 },
             blitzer: { health: 12, speed: 5, damage: 4, size: 14, color: '#ffaa00', points: 30, leavesTrail: true },
             phantom: { health: 25, speed: 3.5, damage: 6, size: 16, color: '#aa44ff', points: 35, phasing: true },
             striker: { health: 20, speed: 3, damage: 7, size: 17, color: '#ff8888', points: 28, speedsWhenHurt: true },
             dasher: { health: 30, speed: 2, damage: 8, size: 18, color: '#00ffff', points: 22, dashes: true },
+            wraith: { health: 18, speed: 4.5, damage: 5, size: 15, color: '#9944ff', points: 38, phasing: true, invisible: true },
+            berserker_enemy: { health: 35, speed: 3.5, damage: 12, size: 19, color: '#ff4466', points: 35, enrages: true },
 
-            // Explosion enemies
+            // === EXPLOSION VARIANTS ===
             bloater: { health: 20, speed: 2.4, damage: 2.5, size: 22, color: '#ff8844', points: 20, explodes: true, fuseTime: 3 },
             nuke: { health: 100, speed: 0.8, damage: 50, size: 45, color: '#ff00ff', points: 100, explodes: true, fuseTime: 5, bigExplosion: true },
             cluster: { health: 35, speed: 1.8, damage: 8, size: 24, color: '#ff6600', points: 40, explodes: true, fuseTime: 4, spawnsMiniBombs: true },
@@ -224,16 +239,23 @@ export default function Game() {
             inferno: { health: 40, speed: 1.5, damage: 10, size: 22, color: '#ff3300', points: 45, leavesFireTrail: true, explodes: true, fuseTime: 6 },
             detonator: { health: 15, speed: 2.8, damage: 20, size: 18, color: '#ff0044', points: 30, explodes: true, fuseTime: 1.5 },
             megaton: { health: 250, speed: 0.5, damage: 80, size: 55, color: '#ff00aa', points: 150, explodes: true, fuseTime: 8, bigExplosion: true, hugeExplosion: true },
+            apocalypse: { health: 300, speed: 0.4, damage: 100, size: 60, color: '#ff0088', points: 200, explodes: true, fuseTime: 10, bigExplosion: true, hugeExplosion: true, spawnsMiniBombs: true },
 
-            // Ranged enemies
+            // === RANGED VARIANTS ===
             spitter: { health: 25, speed: 1.5, damage: 6, size: 18, color: '#88ff44', points: 15, shoots: true },
+            acid_spitter: { health: 28, speed: 1.4, damage: 5, size: 19, color: '#aaff22', points: 22, shoots: true, acidShot: true },
+            plasma_spitter: { health: 22, speed: 1.6, damage: 10, size: 17, color: '#44ffff', points: 28, shoots: true, plasmaShot: true },
             shambler: { health: 40, speed: 1.2, damage: 3, size: 20, color: '#8888ff', points: 25, cloudShooter: true },
             sniper: { health: 30, speed: 1.0, damage: 18, size: 18, color: '#44ff88', points: 35, shoots: true, sniperShot: true },
             gunner: { health: 35, speed: 1.3, damage: 4, size: 20, color: '#44ffaa', points: 32, shoots: true, rapidFire: true },
             mortar: { health: 45, speed: 1.0, damage: 12, size: 24, color: '#88ffcc', points: 40, mortarShot: true },
+            siege: { health: 60, speed: 0.8, damage: 18, size: 28, color: '#66ddaa', points: 55, mortarShot: true, doubleShot: true },
 
-            // Boss
-            boss: { health: 300 * wave, speed: 1.5, damage: 15, size: 50, color: '#ff0066', points: 100 * wave }
+            // === BOSS VARIANTS ===
+            boss_warlord: { health: 300 * wave, speed: 1.8, damage: 12, size: 45, color: '#ff0066', points: 100 * wave, bossType: 'warlord' },
+            boss_titan: { health: 500 * wave, speed: 1.0, damage: 20, size: 60, color: '#8800ff', points: 150 * wave, bossType: 'titan', armor: 0.25 },
+            boss_overlord: { health: 400 * wave, speed: 1.5, damage: 15, size: 55, color: '#ff8800', points: 125 * wave, bossType: 'overlord', shoots: true, rapidFire: true },
+            boss_destroyer: { health: 350 * wave, speed: 2.0, damage: 25, size: 50, color: '#00ff88', points: 175 * wave, bossType: 'destroyer', charges: true, explosiveAttack: true }
         };
 
         const config = enemyConfigs[type];
@@ -276,30 +298,179 @@ export default function Game() {
             sniperShot: config.sniperShot,
             rapidFire: config.rapidFire,
             mortarShot: config.mortarShot,
+            // Variant properties
+            acidShot: config.acidShot,
+            plasmaShot: config.plasmaShot,
+            armor: config.armor || 0,
+            charges: config.charges,
+            enrages: config.enrages,
+            invisible: config.invisible,
+            lowProfile: config.lowProfile,
+            doubleShot: config.doubleShot,
+            explosiveAttack: config.explosiveAttack,
+            bossType: config.bossType,
             lastTrail: 0,
-            lastRegen: 0
+            lastRegen: 0,
+            lastCharge: 0,
+            isCharging: false
         };
 
         gs.enemies.push(enemy);
     }, []);
 
-    const createParticles = useCallback((x, y, color, count = 10, speed = 5) => {
+    const createParticles = useCallback((x, y, color, count = 10, speed = 5, type = 'default') => {
         const gs = gameStateRef.current;
         if (!gs) return;
-        
+
         for (let i = 0; i < count; i++) {
             const angle = (Math.PI * 2 / count) * i + Math.random() * 0.5;
+            const speedMod = 0.5 + Math.random();
             gs.particles.push({
                 x, y,
-                vx: Math.cos(angle) * speed * (0.5 + Math.random()),
-                vy: Math.sin(angle) * speed * (0.5 + Math.random()),
+                vx: Math.cos(angle) * speed * speedMod,
+                vy: Math.sin(angle) * speed * speedMod,
                 life: 1,
                 decay: 0.02 + Math.random() * 0.03,
                 size: 3 + Math.random() * 4,
-                color
+                color,
+                type,
+                rotation: Math.random() * Math.PI * 2,
+                rotationSpeed: (Math.random() - 0.5) * 0.3,
+                gravity: type === 'spark' ? 0.2 : (type === 'smoke' ? -0.05 : 0),
+                shrink: type === 'smoke' ? false : true
             });
         }
     }, []);
+
+    // Create ring explosion effect
+    const createRingExplosion = useCallback((x, y, color, maxRadius = 100) => {
+        const gs = gameStateRef.current;
+        if (!gs) return;
+        gs.ringEffects = gs.ringEffects || [];
+        gs.ringEffects.push({
+            x, y, color,
+            radius: 0,
+            maxRadius,
+            life: 1,
+            lineWidth: 8
+        });
+    }, []);
+
+    // Create screen flash effect
+    const createScreenFlash = useCallback((color, intensity = 0.3) => {
+        const gs = gameStateRef.current;
+        if (!gs) return;
+        gs.screenFlash = { color, intensity, life: 1 };
+    }, []);
+
+    // Create bullet trail
+    const createBulletTrail = useCallback((x, y, color, size = 4) => {
+        const gs = gameStateRef.current;
+        if (!gs) return;
+        gs.bulletTrails = gs.bulletTrails || [];
+        gs.bulletTrails.push({
+            x, y, color, size,
+            life: 1,
+            decay: 0.15
+        });
+    }, []);
+
+    // Create muzzle flash
+    const createMuzzleFlash = useCallback((x, y, angle, color = '#ffff00') => {
+        const gs = gameStateRef.current;
+        if (!gs) return;
+        gs.muzzleFlashes = gs.muzzleFlashes || [];
+        gs.muzzleFlashes.push({
+            x, y, angle, color,
+            life: 1,
+            size: 15 + Math.random() * 10
+        });
+    }, []);
+
+    // Create impact sparks
+    const createImpactSparks = useCallback((x, y, angle, color = '#ffffff') => {
+        const gs = gameStateRef.current;
+        if (!gs) return;
+
+        // Directional sparks
+        for (let i = 0; i < 8; i++) {
+            const sparkAngle = angle + (Math.random() - 0.5) * 1.5;
+            const speed = 5 + Math.random() * 8;
+            gs.particles.push({
+                x, y,
+                vx: Math.cos(sparkAngle) * speed,
+                vy: Math.sin(sparkAngle) * speed,
+                life: 1,
+                decay: 0.05 + Math.random() * 0.05,
+                size: 2 + Math.random() * 2,
+                color,
+                type: 'spark',
+                rotation: 0,
+                rotationSpeed: 0,
+                gravity: 0.3,
+                shrink: true
+            });
+        }
+    }, []);
+
+    // Create death explosion (layered effect)
+    const createDeathExplosion = useCallback((x, y, color, size = 20, isBoss = false) => {
+        const gs = gameStateRef.current;
+        if (!gs) return;
+
+        // Core flash
+        createScreenFlash(color, isBoss ? 0.4 : 0.15);
+
+        // Ring effect
+        createRingExplosion(x, y, color, size * (isBoss ? 8 : 4));
+
+        // Main particles
+        createParticles(x, y, color, isBoss ? 40 : 20, isBoss ? 12 : 8);
+
+        // Secondary color burst
+        createParticles(x, y, '#ffffff', isBoss ? 20 : 10, isBoss ? 10 : 6);
+
+        // Smoke
+        for (let i = 0; i < (isBoss ? 15 : 5); i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const dist = Math.random() * size;
+            gs.particles.push({
+                x: x + Math.cos(angle) * dist,
+                y: y + Math.sin(angle) * dist,
+                vx: (Math.random() - 0.5) * 2,
+                vy: -1 - Math.random() * 2,
+                life: 1,
+                decay: 0.01,
+                size: 10 + Math.random() * 15,
+                color: '#444444',
+                type: 'smoke',
+                rotation: Math.random() * Math.PI * 2,
+                rotationSpeed: (Math.random() - 0.5) * 0.1,
+                gravity: -0.05,
+                shrink: false
+            });
+        }
+
+        // Ember sparks
+        for (let i = 0; i < (isBoss ? 30 : 12); i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 2 + Math.random() * 6;
+            gs.particles.push({
+                x, y,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed - 2,
+                life: 1,
+                decay: 0.015 + Math.random() * 0.02,
+                size: 2 + Math.random() * 3,
+                color: '#ffaa00',
+                type: 'spark',
+                rotation: 0,
+                rotationSpeed: 0,
+                gravity: 0.15,
+                shrink: true
+            });
+        }
+    }, [createParticles, createRingExplosion, createScreenFlash]);
 
     const createDamageNumber = useCallback((x, y, damage, isCrit = false) => {
         const gs = gameStateRef.current;
@@ -318,14 +489,17 @@ export default function Game() {
     const shootBullet = useCallback((bulletData) => {
         const gs = gameStateRef.current;
         if (!gs) return;
-        
+
         gs.bullets.push(bulletData);
-        
+
         if (!bulletData.isEnemy) {
             sfxRef.current?.shoot();
             createParticles(bulletData.x, bulletData.y, bulletData.color || '#ffff00', 3, 3);
+            // Muzzle flash
+            const angle = Math.atan2(bulletData.vy, bulletData.vx);
+            createMuzzleFlash(bulletData.x, bulletData.y, angle, bulletData.color || '#ffff00');
         }
-    }, [createParticles]);
+    }, [createParticles, createMuzzleFlash]);
 
     const shootEnemyBullet = useCallback((fromX, fromY, toX, toY) => {
         const gs = gameStateRef.current;
@@ -357,39 +531,116 @@ export default function Game() {
     const generateUpgrades = useCallback(() => {
         const gs = gameStateRef.current;
         const wave = gs?.wave || 1;
-        
-        const statUpgrades = [
-            { id: 'damage', name: 'DAMAGE+', desc: '+20% Damage', icon: '💥', apply: (p) => p.damage *= 1.2 },
-            { id: 'speed', name: 'VELOCITY', desc: '+15% Move Speed', icon: '⚡', apply: (p) => p.speed *= 1.15 },
-            { id: 'health', name: 'VITALITY', desc: '+25 Max HP', icon: '❤️', apply: (p) => { p.maxHealth += 25; p.health += 25; }},
-            { id: 'firerate', name: 'RAPIDFIRE', desc: '+20% Fire Rate', icon: '🔥', apply: (p) => p.fireRate *= 0.8 },
-            { id: 'pierce', name: 'PIERCING', desc: '+1 Pierce', icon: '🎯', apply: (p) => p.piercing += 1 },
-            { id: 'lifesteal', name: 'VAMPIRIC', desc: '+5% Lifesteal', icon: '🧛', apply: (p) => p.lifesteal += 0.05 },
-            { id: 'crit', name: 'CRITICAL', desc: '+10% Crit Chance', icon: '💀', apply: (p) => p.critChance += 0.1 },
-            { id: 'critdmg', name: 'EXECUTE', desc: '+50% Crit Damage', icon: '⚔️', apply: (p) => p.critMultiplier += 0.5 },
-            { id: 'explosive', name: 'EXPLOSIVE', desc: 'Bullets Explode', icon: '💣', apply: (p) => p.explosiveRounds = true }
+
+        // Common stat upgrades
+        const commonUpgrades = [
+            { id: 'damage', name: 'DAMAGE+', desc: '+20% Damage', icon: '💥', rarity: 'common', apply: (p) => p.damage *= 1.2 },
+            { id: 'speed', name: 'VELOCITY', desc: '+15% Move Speed', icon: '⚡', rarity: 'common', apply: (p) => p.speed *= 1.15 },
+            { id: 'health', name: 'VITALITY', desc: '+25 Max HP', icon: '❤️', rarity: 'common', apply: (p) => { p.maxHealth += 25; p.health += 25; }},
+            { id: 'firerate', name: 'RAPIDFIRE', desc: '+20% Fire Rate', icon: '🔥', rarity: 'common', apply: (p) => p.fireRate *= 0.8 },
+            { id: 'pierce', name: 'PIERCING', desc: '+1 Pierce', icon: '🎯', rarity: 'common', apply: (p) => p.piercing += 1 },
+            { id: 'regen', name: 'REGENERATION', desc: '+2 HP/sec', icon: '💚', rarity: 'common', apply: (p) => p.regen = (p.regen || 0) + 2 },
         ];
-        
-        const allUpgrades = [...statUpgrades];
-        
+
+        // Rare upgrades
+        const rareUpgrades = [
+            { id: 'lifesteal', name: 'VAMPIRIC', desc: '+8% Lifesteal', icon: '🧛', rarity: 'rare', apply: (p) => p.lifesteal += 0.08 },
+            { id: 'crit', name: 'CRITICAL', desc: '+15% Crit Chance', icon: '💀', rarity: 'rare', apply: (p) => p.critChance += 0.15 },
+            { id: 'critdmg', name: 'EXECUTE', desc: '+75% Crit Damage', icon: '⚔️', rarity: 'rare', apply: (p) => p.critMultiplier += 0.75 },
+            { id: 'evasion', name: 'EVASION', desc: '+10% Dodge Chance', icon: '💨', rarity: 'rare', apply: (p) => p.evasionChance = (p.evasionChance || 0) + 0.10 },
+            { id: 'armor', name: 'ARMOR', desc: '-15% Damage Taken', icon: '🛡️', rarity: 'rare', apply: (p) => p.damageReduction = (p.damageReduction || 0) + 0.15 },
+            { id: 'multishot', name: 'MULTISHOT', desc: '+1 Projectile', icon: '🔱', rarity: 'rare', apply: (p) => p.multishot = (p.multishot || 1) + 1 },
+        ];
+
+        // Epic upgrades
+        const epicUpgrades = [
+            { id: 'explosive', name: 'EXPLOSIVE', desc: 'Bullets Explode on Hit', icon: '💣', rarity: 'epic', apply: (p) => p.explosiveRounds = true },
+            { id: 'chain', name: 'CHAIN LIGHTNING', desc: 'Kills chain to nearby enemies', icon: '⚡', rarity: 'epic', apply: (p) => p.hasChainLightning = true },
+            { id: 'homing', name: 'HOMING ROUNDS', desc: 'Bullets seek enemies', icon: '🎯', rarity: 'epic', apply: (p) => p.hasHoming = true },
+            { id: 'thorns', name: 'THORNS', desc: 'Reflect 50% melee damage', icon: '🌹', rarity: 'epic', apply: (p) => p.thornsDamage = 0.5 },
+            { id: 'secondwind', name: 'SECOND WIND', desc: 'Revive once at 50% HP', icon: '💫', rarity: 'epic', apply: (p) => p.hasSecondWind = true },
+            { id: 'drone', name: 'ATTACK DRONE', desc: '+1 Orbiting combat drone', icon: '🛸', rarity: 'epic', apply: (p) => p.droneCount = (p.droneCount || 0) + 1 },
+        ];
+
+        // Legendary upgrades
+        const legendaryUpgrades = [
+            { id: 'godmode', name: 'INVINCIBILITY', desc: '3s immunity after taking damage', icon: '✨', rarity: 'legendary', apply: (p) => p.hasGodmode = true },
+            { id: 'timestop', name: 'TIME STOP', desc: 'Slow time 80% for 5s (Press F)', icon: '⏰', rarity: 'legendary', apply: (p) => { p.hasTimeSlow = true; p.timeSlowAmount = 0.2; }},
+            { id: 'infinity', name: 'INFINITE AMMO', desc: 'No fire rate cooldown for 3s on kill', icon: '♾️', rarity: 'legendary', apply: (p) => p.hasInfiniteAmmo = true },
+            { id: 'reaper', name: 'REAPER', desc: 'Insta-kill enemies below 15% HP', icon: '💀', rarity: 'legendary', apply: (p) => p.hasReaper = true },
+            { id: 'phoenix', name: 'PHOENIX', desc: 'Explode on death, revive full HP', icon: '🔥', rarity: 'legendary', apply: (p) => p.hasPhoenix = true },
+            { id: 'double', name: 'DOUBLE DAMAGE', desc: '+100% Damage', icon: '⚔️', rarity: 'legendary', apply: (p) => p.damage *= 2 },
+        ];
+
+        // Calculate rarity chances based on wave
+        const legendaryChance = Math.min(0.05 + wave * 0.01, 0.15);
+        const epicChance = Math.min(0.10 + wave * 0.02, 0.25);
+        const rareChance = Math.min(0.20 + wave * 0.02, 0.35);
+
+        const allUpgrades = [];
+
+        // Build weighted pool
+        commonUpgrades.forEach(u => allUpgrades.push({ ...u, weight: 1 - legendaryChance - epicChance - rareChance }));
+        rareUpgrades.forEach(u => allUpgrades.push({ ...u, weight: rareChance }));
+        epicUpgrades.forEach(u => allUpgrades.push({ ...u, weight: epicChance }));
+        legendaryUpgrades.forEach(u => allUpgrades.push({ ...u, weight: legendaryChance }));
+
         // Add weapon upgrades after wave 2
         if (wave >= 2) {
-            const weaponKeys = Object.keys(WEAPONS).filter(w => w !== gs.player.currentWeapon);
+            const weaponKeys = Object.keys(WEAPONS).filter(w => w !== gs?.player?.currentWeapon);
             weaponKeys.forEach(key => {
-                allUpgrades.push(createWeaponUpgrade(key));
+                const weaponUpgrade = createWeaponUpgrade(key);
+                // Assign rarity based on weapon power
+                const powerfulWeapons = ['railgun', 'orbital_laser', 'swarm', 'cannon', 'beam'];
+                const rareWeapons = ['lightning', 'plasma', 'sniper', 'tesla', 'harpoon'];
+                let rarity = 'common';
+                if (powerfulWeapons.includes(key)) rarity = 'epic';
+                else if (rareWeapons.includes(key)) rarity = 'rare';
+                allUpgrades.push({ ...weaponUpgrade, rarity, weight: rarity === 'epic' ? epicChance : rarity === 'rare' ? rareChance : 0.3 });
             });
         }
-        
+
         // Add gear upgrades after wave 3
         if (wave >= 3) {
             const gearKeys = Object.keys(GEAR);
             gearKeys.forEach(key => {
-                allUpgrades.push(createGearUpgrade(key));
+                const gearUpgrade = createGearUpgrade(key);
+                // Assign rarity based on gear type
+                const legendaryGear = ['orbital', 'time_slow', 'second_wind'];
+                const epicGear = ['chain_lightning', 'homing', 'teleport', 'gravity_well', 'overcharge'];
+                const rareGear = ['drone', 'dash', 'shield_gen', 'fortress', 'executioner'];
+                let rarity = 'common';
+                if (legendaryGear.includes(key)) rarity = 'legendary';
+                else if (epicGear.includes(key)) rarity = 'epic';
+                else if (rareGear.includes(key)) rarity = 'rare';
+                const weight = rarity === 'legendary' ? legendaryChance : rarity === 'epic' ? epicChance : rarity === 'rare' ? rareChance : 0.3;
+                allUpgrades.push({ ...gearUpgrade, rarity, weight });
             });
         }
-        
-        const shuffled = allUpgrades.sort(() => Math.random() - 0.5);
-        return shuffled.slice(0, 3);
+
+        // Weighted random selection
+        const selectWeighted = (pool, count) => {
+            const selected = [];
+            const remaining = [...pool];
+
+            for (let i = 0; i < count && remaining.length > 0; i++) {
+                const totalWeight = remaining.reduce((sum, item) => sum + item.weight, 0);
+                let random = Math.random() * totalWeight;
+
+                for (let j = 0; j < remaining.length; j++) {
+                    random -= remaining[j].weight;
+                    if (random <= 0) {
+                        selected.push(remaining[j]);
+                        remaining.splice(j, 1);
+                        break;
+                    }
+                }
+            }
+
+            return selected;
+        };
+
+        return selectWeighted(allUpgrades, 3);
     }, []);
 
     const applyUpgrade = useCallback((upgrade) => {
@@ -401,6 +652,14 @@ export default function Game() {
             setIsPaused(false);
         }
     }, []);
+
+    const handleReroll = useCallback(() => {
+        if (rerolls > 0) {
+            sfxRef.current?.menuSelect();
+            setRerolls(prev => prev - 1);
+            setAvailableUpgrades(generateUpgrades());
+        }
+    }, [rerolls, generateUpgrades]);
 
     const gameLoop = useCallback(() => {
         const gs = gameStateRef.current;
@@ -908,13 +1167,18 @@ export default function Game() {
             gs.waveComplete = true;
             sfxRef.current?.waveComplete();
             triggerScreenShake(0.5);
-            
+
             // Show upgrades
             setTimeout(() => {
                 setAvailableUpgrades(generateUpgrades());
                 setShowUpgrades(true);
                 setIsPaused(true);
-                
+
+                // Bonus reroll every 5 waves
+                if (gs.wave % 5 === 0) {
+                    setRerolls(prev => Math.min(prev + 1, maxRerolls + 2));
+                }
+
                 // Start next wave
                 gs.wave++;
                 gs.difficultyMultiplier = 1 + (gs.wave - 1) * 0.15;
@@ -1024,6 +1288,11 @@ export default function Game() {
                 }
                 b.x += b.vx;
                 b.y += b.vy;
+
+                // Create bullet trail for fast/special bullets
+                if (!b.isEnemy && (b.sniper || b.lightning || b.railgun || b.beam || Math.hypot(b.vx, b.vy) > 20)) {
+                    createBulletTrail(b.x, b.y, b.color || '#00ffff', b.size * 0.6);
+                }
             }
 
             // Lifetime bullets (flame, cloud)
@@ -1061,7 +1330,7 @@ export default function Game() {
             const bulletColor = b.color || (b.isEnemy ? '#ff0066' : '#00ffff');
             ctx.fillStyle = bulletColor;
             ctx.shadowColor = bulletColor;
-            ctx.shadowBlur = b.flame ? 25 : (b.isCloud ? 20 : (b.sniper ? 15 : (b.lightning ? 30 : 10)));
+            ctx.shadowBlur = b.flame ? 25 : (b.isCloud ? 20 : (b.sniper ? 20 : (b.lightning ? 30 : (b.railgun ? 35 : (b.beam ? 25 : 12)))));
             ctx.globalAlpha = b.flame ? 0.8 : (b.isCloud ? 0.6 : 1);
 
             if (b.isCloud) {
@@ -1080,36 +1349,125 @@ export default function Game() {
                 ctx.fill();
                 ctx.globalAlpha = 1;
             } else if (b.grenade) {
-                // Draw grenade as rotating square
+                // Draw grenade as rotating square with glow
                 const rotation = (now - b.spawnTime) * 0.01;
                 ctx.save();
                 ctx.translate(b.x, b.y);
                 ctx.rotate(rotation);
                 ctx.fillRect(-b.size, -b.size, b.size * 2, b.size * 2);
+                // Inner highlight
+                ctx.fillStyle = '#ffffff';
+                ctx.globalAlpha = 0.5;
+                ctx.fillRect(-b.size * 0.5, -b.size * 0.5, b.size, b.size);
                 ctx.restore();
-            } else if (b.sniper) {
-                // Draw sniper bullet as elongated
+            } else if (b.sniper || b.railgun) {
+                // Draw sniper/railgun bullet as elongated tracer with trail
                 ctx.save();
                 ctx.translate(b.x, b.y);
-                ctx.rotate(Math.atan2(b.vy, b.vx));
-                ctx.fillRect(-15, -3, 30, 6);
+                const angle = Math.atan2(b.vy, b.vx);
+                ctx.rotate(angle);
+                // Trail glow
+                const trailLength = b.railgun ? 40 : 25;
+                const gradient = ctx.createLinearGradient(-trailLength, 0, trailLength, 0);
+                gradient.addColorStop(0, 'rgba(255,255,255,0)');
+                gradient.addColorStop(0.5, bulletColor);
+                gradient.addColorStop(1, bulletColor);
+                ctx.fillStyle = gradient;
+                ctx.fillRect(-trailLength, -3, trailLength * 2, 6);
+                // Core
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, -2, 10, 4);
                 ctx.restore();
             } else if (b.lightning) {
-                // Draw lightning as sparking circle
+                // Draw lightning as sparking circle with electric arcs
                 ctx.beginPath();
                 ctx.arc(b.x, b.y, b.size, 0, Math.PI * 2);
                 ctx.fill();
-                // Add sparks
-                for (let j = 0; j < 3; j++) {
-                    const angle = Math.random() * Math.PI * 2;
-                    const dist = b.size + Math.random() * 10;
+                // Electric arcs
+                ctx.strokeStyle = bulletColor;
+                ctx.lineWidth = 2;
+                for (let j = 0; j < 4; j++) {
+                    const startAngle = Math.random() * Math.PI * 2;
+                    const dist = b.size + Math.random() * 15;
                     ctx.beginPath();
-                    ctx.arc(b.x + Math.cos(angle) * dist, b.y + Math.sin(angle) * dist, 2, 0, Math.PI * 2);
-                    ctx.fill();
+                    ctx.moveTo(b.x, b.y);
+                    // Jagged line
+                    let px = b.x, py = b.y;
+                    for (let k = 0; k < 3; k++) {
+                        const t = (k + 1) / 3;
+                        const nx = b.x + Math.cos(startAngle) * dist * t + (Math.random() - 0.5) * 8;
+                        const ny = b.y + Math.sin(startAngle) * dist * t + (Math.random() - 0.5) * 8;
+                        ctx.lineTo(nx, ny);
+                        px = nx; py = ny;
+                    }
+                    ctx.stroke();
                 }
-            } else {
+            } else if (b.beam) {
+                // Beam weapon - bright line
+                ctx.save();
+                ctx.translate(b.x, b.y);
+                ctx.rotate(Math.atan2(b.vy, b.vx));
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(-20, -2, 40, 4);
+                ctx.fillStyle = bulletColor;
+                ctx.fillRect(-25, -4, 50, 8);
+                ctx.restore();
+            } else if (b.flame) {
+                // Flame with flickering effect
+                ctx.globalAlpha = 0.6 + Math.random() * 0.3;
+                const flameSize = b.size * (0.8 + Math.random() * 0.4);
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, flameSize, 0, Math.PI * 2);
+                ctx.fill();
+                // Inner bright core
+                ctx.fillStyle = '#ffff00';
+                ctx.globalAlpha = 0.4;
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, flameSize * 0.5, 0, Math.PI * 2);
+                ctx.fill();
+            } else if (b.homing) {
+                // Homing missile with fins
+                ctx.save();
+                ctx.translate(b.x, b.y);
+                ctx.rotate(Math.atan2(b.vy, b.vx));
+                // Body
+                ctx.fillRect(-6, -3, 12, 6);
+                // Fins
+                ctx.fillStyle = '#ff6666';
+                ctx.beginPath();
+                ctx.moveTo(-6, -3);
+                ctx.lineTo(-10, -6);
+                ctx.lineTo(-6, 0);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.moveTo(-6, 3);
+                ctx.lineTo(-10, 6);
+                ctx.lineTo(-6, 0);
+                ctx.fill();
+                // Exhaust
+                ctx.fillStyle = '#ffaa00';
+                ctx.globalAlpha = 0.7;
+                ctx.fillRect(-12, -2, 6, 4);
+                ctx.restore();
+            } else if (b.acid || b.cryo) {
+                // Acid/Cryo blob with dripping effect
                 ctx.beginPath();
                 ctx.arc(b.x, b.y, b.size, 0, Math.PI * 2);
+                ctx.fill();
+                // Drip
+                ctx.beginPath();
+                ctx.arc(b.x + b.vx * 0.3, b.y + b.vy * 0.3 + b.size * 0.5, b.size * 0.4, 0, Math.PI * 2);
+                ctx.fill();
+            } else {
+                // Default bullet with core highlight
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, b.size, 0, Math.PI * 2);
+                ctx.fill();
+                // Bright core
+                ctx.fillStyle = '#ffffff';
+                ctx.globalAlpha = 0.6;
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, b.size * 0.4, 0, Math.PI * 2);
                 ctx.fill();
             }
 
@@ -1365,9 +1723,13 @@ export default function Game() {
                         }
 
                         createDamageNumber(e.x, e.y - e.size, damage, isCrit);
-                        createParticles(b.x, b.y, e.color, 5, 3);
+                        // Impact sparks in direction of bullet travel
+                        const impactAngle = Math.atan2(b.vy, b.vx) + Math.PI;
+                        createImpactSparks(b.x, b.y, impactAngle, e.color);
                         if (isCrit) {
                             sfxRef.current?.criticalHit();
+                            // Extra flash for crits
+                            createParticles(e.x, e.y, '#ffff00', 8, 6, 'spark');
                         } else {
                             sfxRef.current?.enemyHit();
                         }
@@ -1457,7 +1819,8 @@ export default function Game() {
                                 sfxRef.current?.kill();
                             }
                             triggerScreenShake(e.type === 'boss' ? 1 : 0.15);
-                            createParticles(e.x, e.y, e.color, e.type === 'boss' ? 30 : 15, e.type === 'boss' ? 10 : 6);
+                            // Enhanced death explosion
+                            createDeathExplosion(e.x, e.y, e.color, e.size, e.type === 'boss');
 
                             // Adrenaline: heal on kill
                             if (player.adrenalineHeal > 0) {
@@ -2002,23 +2365,138 @@ export default function Game() {
             ctx.shadowBlur = 0;
         }
 
-        // Update particles
+        // Update and draw bullet trails
+        gs.bulletTrails = gs.bulletTrails || [];
+        for (let i = gs.bulletTrails.length - 1; i >= 0; i--) {
+            const t = gs.bulletTrails[i];
+            t.life -= t.decay;
+
+            if (t.life <= 0) {
+                gs.bulletTrails.splice(i, 1);
+                continue;
+            }
+
+            ctx.globalAlpha = t.life * 0.6;
+            ctx.fillStyle = t.color;
+            ctx.shadowColor = t.color;
+            ctx.shadowBlur = 10;
+            ctx.beginPath();
+            ctx.arc(t.x, t.y, t.size * t.life, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            ctx.globalAlpha = 1;
+        }
+
+        // Update and draw muzzle flashes
+        gs.muzzleFlashes = gs.muzzleFlashes || [];
+        for (let i = gs.muzzleFlashes.length - 1; i >= 0; i--) {
+            const m = gs.muzzleFlashes[i];
+            m.life -= 0.2;
+
+            if (m.life <= 0) {
+                gs.muzzleFlashes.splice(i, 1);
+                continue;
+            }
+
+            ctx.save();
+            ctx.translate(m.x, m.y);
+            ctx.rotate(m.angle);
+            ctx.globalAlpha = m.life;
+            ctx.fillStyle = m.color;
+            ctx.shadowColor = m.color;
+            ctx.shadowBlur = 20;
+            // Draw flash as elongated triangle
+            ctx.beginPath();
+            ctx.moveTo(0, -m.size * 0.3 * m.life);
+            ctx.lineTo(m.size * m.life, 0);
+            ctx.lineTo(0, m.size * 0.3 * m.life);
+            ctx.closePath();
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            ctx.globalAlpha = 1;
+            ctx.restore();
+        }
+
+        // Update and draw ring effects
+        gs.ringEffects = gs.ringEffects || [];
+        for (let i = gs.ringEffects.length - 1; i >= 0; i--) {
+            const r = gs.ringEffects[i];
+            r.radius += (r.maxRadius - r.radius) * 0.2;
+            r.life -= 0.03;
+            r.lineWidth = Math.max(1, r.lineWidth * 0.95);
+
+            if (r.life <= 0) {
+                gs.ringEffects.splice(i, 1);
+                continue;
+            }
+
+            ctx.globalAlpha = r.life * 0.7;
+            ctx.strokeStyle = r.color;
+            ctx.lineWidth = r.lineWidth;
+            ctx.shadowColor = r.color;
+            ctx.shadowBlur = 20;
+            ctx.beginPath();
+            ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            ctx.globalAlpha = 1;
+        }
+
+        // Update particles (enhanced with types)
         for (let i = particles.length - 1; i >= 0; i--) {
             const p = particles[i];
             p.x += p.vx;
             p.y += p.vy;
             p.vx *= 0.95;
             p.vy *= 0.95;
+            p.vy += p.gravity || 0;
             p.life -= p.decay;
+            p.rotation = (p.rotation || 0) + (p.rotationSpeed || 0);
 
             if (p.life <= 0) {
                 particles.splice(i, 1);
                 continue;
             }
 
-            ctx.globalAlpha = p.life;
+            const size = p.shrink !== false ? p.size * p.life : p.size;
+            ctx.globalAlpha = p.type === 'smoke' ? p.life * 0.5 : p.life;
             ctx.fillStyle = p.color;
-            ctx.fillRect(p.x - p.size/2, p.y - p.size/2, p.size, p.size);
+
+            if (p.type === 'smoke') {
+                // Smoke: soft circle with blur
+                ctx.shadowColor = p.color;
+                ctx.shadowBlur = 10;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            } else if (p.type === 'spark') {
+                // Spark: small bright dot with trail
+                ctx.shadowColor = p.color;
+                ctx.shadowBlur = 8;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, size * 0.5, 0, Math.PI * 2);
+                ctx.fill();
+                // Trail
+                ctx.globalAlpha = p.life * 0.5;
+                ctx.beginPath();
+                ctx.moveTo(p.x, p.y);
+                ctx.lineTo(p.x - p.vx * 3, p.y - p.vy * 3);
+                ctx.strokeStyle = p.color;
+                ctx.lineWidth = size * 0.3;
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+            } else {
+                // Default: rotating square
+                ctx.save();
+                ctx.translate(p.x, p.y);
+                ctx.rotate(p.rotation || 0);
+                ctx.shadowColor = p.color;
+                ctx.shadowBlur = 5;
+                ctx.fillRect(-size/2, -size/2, size, size);
+                ctx.shadowBlur = 0;
+                ctx.restore();
+            }
             ctx.globalAlpha = 1;
         }
 
@@ -2066,19 +2544,45 @@ export default function Game() {
         for (let i = damageNumbers.length - 1; i >= 0; i--) {
             const d = damageNumbers[i];
             d.y += d.vy;
+            d.vy *= 0.95; // Slow down over time
             d.life -= 0.02;
-            
+            // Add slight horizontal drift
+            d.x += (d.drift || 0);
+            if (!d.drift) d.drift = (Math.random() - 0.5) * 0.5;
+
             if (d.life <= 0) {
                 damageNumbers.splice(i, 1);
                 continue;
             }
 
+            // Scale effect for crits
+            const scale = d.isCrit ? 1 + (1 - d.life) * 0.3 : 1;
+            const fontSize = d.isCrit ? 24 * scale : 18;
+
+            ctx.save();
             ctx.globalAlpha = d.life;
-            ctx.font = d.isCrit ? 'bold 24px Inter' : '18px Inter';
-            ctx.fillStyle = d.isCrit ? '#ffff00' : '#ffffff';
+            ctx.font = `bold ${Math.round(fontSize)}px Inter`;
             ctx.textAlign = 'center';
+
+            // Glow/shadow effect
+            if (d.isCrit) {
+                ctx.shadowColor = '#ffaa00';
+                ctx.shadowBlur = 15;
+                ctx.fillStyle = '#ffff00';
+            } else {
+                ctx.shadowColor = 'rgba(0,0,0,0.8)';
+                ctx.shadowBlur = 4;
+                ctx.fillStyle = '#ffffff';
+            }
+
+            // Draw outline for better visibility
+            ctx.strokeStyle = d.isCrit ? '#ff6600' : '#000000';
+            ctx.lineWidth = d.isCrit ? 3 : 2;
+            ctx.strokeText(d.damage.toString(), d.x, d.y);
             ctx.fillText(d.damage.toString(), d.x, d.y);
-            ctx.globalAlpha = 1;
+
+            ctx.shadowBlur = 0;
+            ctx.restore();
         }
 
         // Combo timer
@@ -2144,6 +2648,28 @@ export default function Game() {
 
         ctx.restore();
 
+        // Screen flash effect (drawn last as overlay)
+        if (gs.screenFlash && gs.screenFlash.life > 0) {
+            ctx.globalAlpha = gs.screenFlash.life * gs.screenFlash.intensity;
+            ctx.fillStyle = gs.screenFlash.color;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.globalAlpha = 1;
+            gs.screenFlash.life -= 0.1;
+        }
+
+        // Low health vignette effect
+        if (player.health > 0 && player.health < player.maxHealth * 0.3) {
+            const vignetteIntensity = 1 - (player.health / (player.maxHealth * 0.3));
+            const gradient = ctx.createRadialGradient(
+                canvas.width / 2, canvas.height / 2, canvas.width * 0.3,
+                canvas.width / 2, canvas.height / 2, canvas.width * 0.8
+            );
+            gradient.addColorStop(0, 'rgba(255, 0, 0, 0)');
+            gradient.addColorStop(1, `rgba(255, 0, 0, ${vignetteIntensity * 0.4})`);
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
         // Low health warning sound
         if (player.health > 0 && player.health < player.maxHealth * 0.25) {
             if (!player.lastLowHealthWarning || now - player.lastLowHealthWarning > 2000) {
@@ -2171,13 +2697,14 @@ export default function Game() {
         if (!gameOver) {
             animationRef.current = requestAnimationFrame(gameLoop);
         }
-    }, [isPaused, gameOver, shootBullet, spawnEnemy, createParticles, createDamageNumber, triggerScreenShake, generateUpgrades]);
+    }, [isPaused, gameOver, shootBullet, spawnEnemy, createParticles, createDamageNumber, triggerScreenShake, generateUpgrades, createBulletTrail, createDeathExplosion, createImpactSparks, createRingExplosion, createScreenFlash]);
 
     const startGame = useCallback((classData) => {
         setGameStarted(true);
         setGameOver(false);
         setIsPaused(false);
-        
+        setRerolls(maxRerolls);
+
         // Wait for canvas to be visible before initializing
         setTimeout(() => {
             initGame(classData);
@@ -2669,10 +3196,13 @@ export default function Game() {
             )}
 
             {showUpgrades && (
-                <UpgradeModal 
+                <UpgradeModal
                     upgrades={availableUpgrades}
                     onSelect={applyUpgrade}
                     wave={uiState.wave}
+                    rerolls={rerolls}
+                    maxRerolls={maxRerolls}
+                    onReroll={handleReroll}
                 />
             )}
 
