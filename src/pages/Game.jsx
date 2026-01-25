@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import GameUI from '@/components/game/GameUI';
 import UpgradeModal from '@/components/game/UpgradeModal';
 import GameOverScreen from '@/components/game/GameOverScreen';
-import ClassSelection, { CLASSES } from '@/components/game/ClassSelection';
+import ClassSelection from '@/components/game/ClassSelection';
 import EnemyLog from '@/components/game/EnemyLog';
 import EnemyCounter from '@/components/game/EnemyCounter';
 import CheatPopup from '@/components/game/CheatPopup';
@@ -61,45 +61,87 @@ export default function Game() {
     const initGame = useCallback((classData) => {
         const canvas = canvasRef.current;
         if (!canvas) return;
-        
+
         const ctx = canvas.getContext('2d');
         // Set explicit dimensions
         const rect = canvas.getBoundingClientRect();
         canvas.width = rect.width || window.innerWidth;
         canvas.height = rect.height || window.innerHeight;
-        
+
+        // Apply class passives to base stats
+        const classId = classData.id;
+        let health = classData.stats.health;
+        let damage = classData.stats.damage;
+        let speed = classData.stats.speed;
+        let critChance = 0.05;
+        let critMultiplier = 2;
+        let lifesteal = 0;
+        let evasionChance = 0;
+        let shield = 0;
+        let regen = 0;
+        let droneCount = 0;
+        let scoreMultiplier = 1;
+
+        // Class-specific stat modifiers
+        if (classId === 'gunslinger') { critChance = 0.30; critMultiplier = 2.5; }
+        if (classId === 'sniper') { critChance = 0.15; critMultiplier = 3; }
+        if (classId === 'vampire') { lifesteal = 0.20; regen = 0; }
+        if (classId === 'medic') { regen = 2; }
+        if (classId === 'speedster') { evasionChance = 0.25; }
+        if (classId === 'ghost') { evasionChance = 0.15; }
+        if (classId === 'ninja') { evasionChance = 0.35; }
+        if (classId === 'lucky') { evasionChance = 0.15; critChance = 0.30; scoreMultiplier = 1.25; }
+        if (classId === 'gambler') { scoreMultiplier = 1.5; }
+        if (classId === 'fortress') { shield = 50; }
+        if (classId === 'engineer') { droneCount = 2; }
+        if (classId === 'dasher') { evasionChance = 0.1; }
+
         gameStateRef.current = {
             ctx,
             canvas,
             player: {
                 x: canvas.width / 2,
                 y: canvas.height / 2,
-                speed: classData.stats.speed,
-                health: classData.stats.health,
-                maxHealth: classData.stats.health,
-                damage: classData.stats.damage,
+                speed,
+                baseSpeed: speed,
+                health,
+                maxHealth: health,
+                damage,
+                baseDamage: damage,
                 fireRate: classData.stats.fireRate,
                 lastShot: 0,
                 piercing: 0,
-                lifesteal: 0,
+                lifesteal,
                 explosiveRounds: false,
                 multishot: 1,
-                critChance: classData.id === 'gunslinger' ? 0.25 : 0.05,
-                critMultiplier: 2,
-                shield: 0,
-                maxShield: 0,
-                regen: 0,
+                critChance,
+                critMultiplier,
+                shield,
+                maxShield: shield > 0 ? 100 : 0,
+                regen,
                 lastRegen: 0,
                 currentWeapon: classData.stats.weapon,
-                classId: classData.id,
+                classId,
                 ability: {
                     name: classData.ability.name,
                     cooldown: classData.ability.cooldown,
+                    type: classData.ability.type,
                     ready: true,
                     lastUsed: 0
                 },
                 invulnerable: false,
-                invulnerableUntil: 0
+                invulnerableUntil: 0,
+                evasionChance,
+                droneCount,
+                scoreMultiplier,
+                // Class-specific tracking
+                berserkerStacks: 0,
+                titanBonusWave: 0,
+                runnerMoving: false,
+                ghostPhasing: false,
+                ninjaInvisible: false,
+                gamblerAllIn: false,
+                elementalLastType: 0
             },
             bullets: [],
             enemies: [],
@@ -599,8 +641,76 @@ export default function Game() {
             player.stamina = player.maxStamina;
         }
 
+        // === CLASS PASSIVE EFFECTS ===
+        // (isMoving already defined above)
+
+        // Speedster: Afterburner trail
+        if (player.classId === 'speedster' && player.afterburnerUntil && now < player.afterburnerUntil) {
+            createParticles(player.x, player.y, '#ffaa00', 2, 4);
+            // Damage enemies in trail
+            enemies.forEach(e => {
+                const d = Math.hypot(e.x - player.x, e.y - player.y);
+                if (d < 40) {
+                    e.health -= player.damage * 0.1;
+                    e.hitFlash = 2;
+                }
+            });
+        }
+
+        // Runner: damage modifier based on movement
+        let runnerDamageMultiplier = 1;
+        if (player.classId === 'runner') {
+            runnerDamageMultiplier = isMoving ? 1.3 : 0.5;
+        }
+
+        // Ghost: phase through enemies while moving
+        if (player.classId === 'ghost') {
+            player.ghostPhasing = isMoving;
+        }
+
+        // Ninja: invisible when not shooting recently
+        if (player.classId === 'ninja') {
+            if (now - player.lastShot > 1000) {
+                player.ninjaInvisible = true;
+            } else {
+                player.ninjaInvisible = false;
+            }
+        }
+
+        // Berserker: stacking damage on kills (handled in kill section)
+        // Reset stacks when taking damage (handled in damage section)
+
+        // Titan: grow stronger each wave
+        if (player.classId === 'titan' && gs.wave > player.titanBonusWave) {
+            player.titanBonusWave = gs.wave;
+            const waveBonus = gs.wave - 1;
+            player.damage = player.baseDamage * (1 + waveBonus * 0.01);
+            player.speed = player.baseSpeed * (1 + waveBonus * 0.01);
+            player.maxHealth += 5;
+            player.health = Math.min(player.health + 5, player.maxHealth);
+        }
+
+        // Lucky: random effects
+        if (player.classId === 'lucky' && Math.random() < 0.001) {
+            // Small chance for random buff each frame
+            const effects = ['heal', 'speed', 'damage'];
+            const effect = effects[Math.floor(Math.random() * effects.length)];
+            if (effect === 'heal') player.health = Math.min(player.maxHealth, player.health + 5);
+            if (effect === 'speed') player.quickstepUntil = now + 2000;
+        }
+
+        // Fortress: shield regen
+        if (player.classId === 'fortress' && player.shield < player.maxShield) {
+            player.shield = Math.min(player.maxShield, player.shield + 0.05);
+        }
+
+        // Glass Cannon: overload damage boost
+        const overloadBonus = (player.classId === 'glass_cannon' && player.overloadUntil && now < player.overloadUntil) ? 2 : 1;
+
+        // Calculate final speed multiplier
+        const afterburnerBonus = (player.afterburnerUntil && now < player.afterburnerUntil) ? 2 : 1;
         const speedMultiplier = (player.dashActive ? 4 : (player.isSprinting ? 1.5 : 1))
-            * momentumBonus * quickstepBonus * slipstreamBonus * (nitroActive ? 2 : 1);
+            * momentumBonus * quickstepBonus * slipstreamBonus * (nitroActive ? 2 : 1) * afterburnerBonus;
 
         if (dx !== 0 || dy !== 0) {
             const len = Math.sqrt(dx * dx + dy * dy);
@@ -1043,7 +1153,14 @@ export default function Game() {
                     }
 
                     player.health -= damage;
-                    if (damage > 0) sfxRef.current?.hit();
+                    if (damage > 0) {
+                        sfxRef.current?.hit();
+                        // Berserker: reset stacks on taking damage
+                        if (player.classId === 'berserker') {
+                            player.berserkerStacks = 0;
+                            player.speed = player.baseSpeed;
+                        }
+                    }
                     triggerScreenShake(0.3);
                     createParticles(player.x, player.y, '#ff0000', 8, 4);
                     createDamageNumber(player.x, player.y - PLAYER_SIZE, damage, false);
@@ -1083,7 +1200,7 @@ export default function Game() {
                         const isCrit = Math.random() < player.critChance;
                         let damage = b.damage * (isCrit ? player.critMultiplier : 1);
 
-                        // Berserker: +50% damage when below 50% HP
+                        // Berserker upgrade: +50% damage when below 50% HP
                         if (player.hasBerserker && player.health < player.maxHealth * 0.5) {
                             damage *= 1.5;
                         }
@@ -1101,6 +1218,98 @@ export default function Game() {
                         // Overcharge: 3x damage
                         if (overchargeActive) {
                             damage *= 3;
+                        }
+
+                        // === CLASS DAMAGE MODIFIERS ===
+                        // Runner: +30% while moving, -50% while still
+                        if (player.classId === 'runner') {
+                            const isMoving = gs.keys.w || gs.keys.a || gs.keys.s || gs.keys.d;
+                            damage *= isMoving ? 1.3 : 0.5;
+                        }
+
+                        // Berserker class: kill stacks
+                        if (player.classId === 'berserker' && player.berserkerStacks > 0) {
+                            damage *= 1 + (player.berserkerStacks * 0.05);
+                        }
+
+                        // Glass Cannon: overload bonus
+                        if (player.classId === 'glass_cannon' && player.overloadUntil && now < player.overloadUntil) {
+                            damage *= 2;
+                        }
+
+                        // Gambler: random damage 50%-300%, all-in doubles
+                        if (player.classId === 'gambler') {
+                            damage *= 0.5 + Math.random() * 2.5;
+                            if (player.gamblerAllIn && player.gamblerAllInShots > 0) {
+                                if (Math.random() > 0.5) {
+                                    damage *= 2;
+                                } else {
+                                    damage = 0;
+                                }
+                                player.gamblerAllInShots--;
+                            }
+                        }
+
+                        // Lucky: 30% chance for double damage
+                        if (player.classId === 'lucky' && Math.random() < 0.3) {
+                            damage *= 2;
+                            createParticles(e.x, e.y, '#44ff44', 5, 4);
+                        }
+
+                        // Rogue: +50% to slowed/frozen enemies, cheap shot 3x
+                        if (player.classId === 'rogue') {
+                            if (e.frozen || e.slowed) damage *= 1.5;
+                            if (player.cheapShot) {
+                                damage *= 3;
+                                e.stunned = true;
+                                e.stunEndTime = now + 1500;
+                                player.cheapShot = false;
+                            }
+                            // Attacks apply slow
+                            e.slowed = true;
+                            e.slowedEnd = now + 1000;
+                            if (!e.originalSpeed) e.originalSpeed = e.speed;
+                            e.speed = e.originalSpeed * 0.7;
+                        }
+
+                        // Sniper: focus shot 5x + pierce
+                        if (player.classId === 'sniper' && player.focusShot) {
+                            damage *= 5;
+                            b.piercing = 999;
+                            player.focusShot = false;
+                        }
+
+                        // Elemental: random status effect
+                        if (player.classId === 'elemental') {
+                            const elementType = Math.floor(Math.random() * 3);
+                            if (elementType === 0 && !e.burning) {
+                                e.burning = true;
+                                e.burnDamage = player.damage * 0.3;
+                                e.burnEnd = now + 3000;
+                            } else if (elementType === 1 && !e.frozen) {
+                                e.frozen = true;
+                                e.frozenEnd = now + 2000;
+                                if (!e.originalSpeed) e.originalSpeed = e.speed;
+                                e.speed *= 0.5;
+                            } else if (elementType === 2) {
+                                // Lightning - chain to nearby
+                                enemies.forEach(other => {
+                                    if (other !== e) {
+                                        const d = Math.hypot(other.x - e.x, other.y - e.y);
+                                        if (d < 100) {
+                                            other.health -= damage * 0.3;
+                                            other.hitFlash = 3;
+                                        }
+                                    }
+                                });
+                            }
+                        }
+
+                        // Pyromaniac: always burn
+                        if (player.classId === 'pyromaniac' && !e.burning) {
+                            e.burning = true;
+                            e.burnDamage = player.damage * 0.5;
+                            e.burnEnd = now + 4000;
                         }
 
                         e.health -= damage;
@@ -1253,6 +1462,30 @@ export default function Game() {
                             // Adrenaline: heal on kill
                             if (player.adrenalineHeal > 0) {
                                 player.health = Math.min(player.maxHealth, player.health + player.adrenalineHeal);
+                            }
+
+                            // === CLASS KILL BONUSES ===
+                            // Berserker: stack damage on kills (max 20 stacks = +100%)
+                            if (player.classId === 'berserker') {
+                                player.berserkerStacks = Math.min(20, (player.berserkerStacks || 0) + 1);
+                                player.speed = player.baseSpeed * (1 + player.berserkerStacks * 0.02);
+                            }
+
+                            // Vampire: heal on kill
+                            if (player.classId === 'vampire') {
+                                player.health = Math.min(player.maxHealth, player.health + 5);
+                            }
+
+                            // Paladin: heal nearby (self)
+                            if (player.classId === 'paladin') {
+                                player.health = Math.min(player.maxHealth, player.health + 3);
+                            }
+
+                            // Necromancer: track recent kills
+                            if (player.classId === 'necromancer') {
+                                gs.recentKills = gs.recentKills || [];
+                                gs.recentKills.push({ x: e.x, y: e.y, health: e.maxHealth });
+                                if (gs.recentKills.length > 10) gs.recentKills.shift();
                             }
 
                             // Chain lightning on kill
@@ -2027,56 +2260,294 @@ export default function Game() {
                 // Ability activation
                 if ((e.key === ' ' || e.key === 'Spacebar') && gameStateRef.current.player) {
                     const player = gameStateRef.current.player;
+                    const gs = gameStateRef.current;
                     const now = Date.now();
-                    
+
+                    // Skip if passive ability
+                    if (player.ability.type === 'passive') return;
+
                     if (player.ability.ready || now - player.ability.lastUsed > player.ability.cooldown * 1000) {
                         player.ability.ready = false;
                         player.ability.lastUsed = now;
-                        
-                        // Execute class ability
-                        if (player.classId === 'bruiser') {
-                            // Iron Shield - invulnerability for 3 seconds
-                            player.invulnerable = true;
-                            player.invulnerableUntil = now + 3000;
-                            sfxRef.current?.upgrade();
-                            triggerScreenShake(0.5);
-                        } else if (player.classId === 'gunslinger') {
-                            // Dodge Roll - quick dash
-                            const dashDist = 150;
-                            const angle = Math.atan2(
-                                gameStateRef.current.mouse.y - player.y,
-                                gameStateRef.current.mouse.x - player.x
-                            );
-                            player.x += Math.cos(angle) * dashDist;
-                            player.y += Math.sin(angle) * dashDist;
-                            player.invulnerable = true;
-                            player.invulnerableUntil = now + 500;
-                            sfxRef.current?.upgrade();
-                            createParticles(player.x, player.y, '#00ffff', 20, 8);
-                        } else if (player.classId === 'artillery') {
-                            // Bombardment - explosions around player
-                            for (let i = 0; i < 8; i++) {
-                                const angle = (Math.PI * 2 / 8) * i;
-                                const dist = 100 + Math.random() * 50;
-                                const x = player.x + Math.cos(angle) * dist;
-                                const y = player.y + Math.sin(angle) * dist;
-                                
+
+                        // Execute class ability based on classId
+                        switch (player.classId) {
+                            case 'bruiser':
+                                // Iron Shield - invulnerability + damage reflect
+                                player.invulnerable = true;
+                                player.invulnerableUntil = now + 3000;
+                                player.reflectDamage = true;
+                                setTimeout(() => { player.reflectDamage = false; }, 3000);
+                                sfxRef.current?.shieldHit();
+                                triggerScreenShake(0.5);
+                                createParticles(player.x, player.y, '#4488ff', 30, 10);
+                                break;
+
+                            case 'juggernaut':
+                                // Unstoppable - immune to everything for 4s
+                                player.invulnerable = true;
+                                player.invulnerableUntil = now + 4000;
+                                player.unstoppable = true;
+                                setTimeout(() => { player.unstoppable = false; }, 4000);
+                                sfxRef.current?.powerup();
+                                createParticles(player.x, player.y, '#888888', 40, 12);
+                                break;
+
+                            case 'fortress':
+                                // Barrier - shield zone
+                                gs.barrier = { x: player.x, y: player.y, endTime: now + 5000, radius: 120 };
+                                sfxRef.current?.shieldRecharge();
+                                createParticles(player.x, player.y, '#ffaa00', 30, 15);
+                                break;
+
+                            case 'speedster':
+                                // Afterburner - speed boost + damaging trail
+                                player.afterburnerUntil = now + 5000;
+                                sfxRef.current?.nitroBoost();
+                                createParticles(player.x, player.y, '#ffff00', 30, 12);
+                                break;
+
+                            case 'ghost':
+                                // Phase Shift - intangible
+                                player.phasing = true;
+                                player.invulnerable = true;
+                                player.invulnerableUntil = now + 3000;
+                                setTimeout(() => { player.phasing = false; }, 3000);
+                                sfxRef.current?.dash();
+                                createParticles(player.x, player.y, '#aa44ff', 25, 10);
+                                break;
+
+                            case 'dasher':
+                                // Blink Dash - instant teleport
+                                createParticles(player.x, player.y, '#00ffff', 20, 8);
+                                player.x = gs.mouse.x;
+                                player.y = gs.mouse.y;
+                                player.invulnerable = true;
+                                player.invulnerableUntil = now + 300;
+                                sfxRef.current?.dash();
+                                createParticles(player.x, player.y, '#00ffff', 20, 8);
+                                break;
+
+                            case 'gunslinger':
+                                // Fan the Hammer - 6 rapid shots
+                                for (let i = 0; i < 6; i++) {
+                                    setTimeout(() => {
+                                        const spread = (i - 2.5) * 0.15;
+                                        const angle = Math.atan2(gs.mouse.y - player.y, gs.mouse.x - player.x) + spread;
+                                        gs.bullets.push({
+                                            x: player.x, y: player.y,
+                                            vx: Math.cos(angle) * 15,
+                                            vy: Math.sin(angle) * 15,
+                                            damage: player.damage * 1.5,
+                                            piercing: 0, size: 6, color: '#ff6600'
+                                        });
+                                        sfxRef.current?.shoot();
+                                    }, i * 50);
+                                }
+                                break;
+
+                            case 'sniper':
+                                // Focus Shot - 5x damage piercing
+                                player.focusShot = true;
+                                sfxRef.current?.sniperCharge();
+                                createParticles(player.x, player.y, '#44ff88', 20, 8);
+                                break;
+
+                            case 'pyromaniac':
+                                // Inferno - massive fire explosion
+                                const infernoRadius = 200;
+                                createParticles(player.x, player.y, '#ff4400', 60, 20);
+                                triggerScreenShake(1);
+                                sfxRef.current?.explosionBig();
+                                gs.enemies.forEach(en => {
+                                    const d = Math.hypot(en.x - player.x, en.y - player.y);
+                                    if (d < infernoRadius) {
+                                        en.health -= player.damage * 3;
+                                        en.burning = true;
+                                        en.burnDamage = player.damage * 0.5;
+                                        en.burnEnd = now + 5000;
+                                        en.hitFlash = 10;
+                                    }
+                                });
+                                break;
+
+                            case 'artillery':
+                                // Bombardment - 5 explosive strikes
+                                for (let i = 0; i < 5; i++) {
+                                    const bx = gs.mouse.x + (Math.random() - 0.5) * 150;
+                                    const by = gs.mouse.y + (Math.random() - 0.5) * 150;
+                                    setTimeout(() => {
+                                        createParticles(bx, by, '#ff8800', 25, 12);
+                                        triggerScreenShake(0.4);
+                                        sfxRef.current?.explosion();
+                                        gs.enemies.forEach(en => {
+                                            const d = Math.hypot(en.x - bx, en.y - by);
+                                            if (d < 100) {
+                                                en.health -= player.damage * 4;
+                                                en.hitFlash = 5;
+                                            }
+                                        });
+                                    }, i * 150);
+                                }
+                                sfxRef.current?.orbitalStrike();
+                                break;
+
+                            case 'assassin':
+                                // Shadow Strike - teleport behind nearest enemy
+                                let nearestEnemy = null;
+                                let nearestDist = Infinity;
+                                gs.enemies.forEach(en => {
+                                    const d = Math.hypot(en.x - player.x, en.y - player.y);
+                                    if (d < nearestDist) { nearestEnemy = en; nearestDist = d; }
+                                });
+                                if (nearestEnemy) {
+                                    const behindAngle = Math.atan2(player.y - nearestEnemy.y, player.x - nearestEnemy.x);
+                                    createParticles(player.x, player.y, '#6644ff', 15, 8);
+                                    player.x = nearestEnemy.x + Math.cos(behindAngle) * 50;
+                                    player.y = nearestEnemy.y + Math.sin(behindAngle) * 50;
+                                    player.invulnerable = true;
+                                    player.invulnerableUntil = now + 500;
+                                    // Backstab damage
+                                    nearestEnemy.health -= player.damage * 3;
+                                    nearestEnemy.hitFlash = 10;
+                                    createDamageNumber(nearestEnemy.x, nearestEnemy.y - nearestEnemy.size, player.damage * 3, true);
+                                    sfxRef.current?.criticalHit();
+                                }
+                                break;
+
+                            case 'ninja':
+                                // Smoke Bomb - vanish and confuse
+                                player.invisibleUntil = now + 3000;
+                                gs.smokeBomb = { x: player.x, y: player.y, endTime: now + 3000 };
+                                gs.enemies.forEach(en => {
+                                    const d = Math.hypot(en.x - player.x, en.y - player.y);
+                                    if (d < 150) {
+                                        en.confused = true;
+                                        en.confusedUntil = now + 3000;
+                                    }
+                                });
+                                sfxRef.current?.dash();
+                                createParticles(player.x, player.y, '#666666', 40, 15);
+                                break;
+
+                            case 'vampire':
+                                // Blood Drain - AoE lifesteal
+                                const drainRadius = 150;
+                                let totalDrained = 0;
+                                gs.enemies.forEach(en => {
+                                    const d = Math.hypot(en.x - player.x, en.y - player.y);
+                                    if (d < drainRadius) {
+                                        const drainDmg = player.damage * 2;
+                                        en.health -= drainDmg;
+                                        en.hitFlash = 10;
+                                        totalDrained += drainDmg;
+                                        createParticles(en.x, en.y, '#ff0044', 10, 6);
+                                    }
+                                });
+                                player.health = Math.min(player.maxHealth, player.health + totalDrained * 0.5);
+                                sfxRef.current?.healthPickup();
+                                createParticles(player.x, player.y, '#ff0044', 30, 12);
+                                break;
+
+                            case 'engineer':
+                                // Deploy Turret
+                                gs.turrets = gs.turrets || [];
+                                gs.turrets.push({
+                                    x: player.x,
+                                    y: player.y,
+                                    health: 100,
+                                    lastShot: 0,
+                                    damage: player.damage * 0.8
+                                });
+                                sfxRef.current?.powerup();
+                                createParticles(player.x, player.y, '#ffaa00', 20, 10);
+                                break;
+
+                            case 'medic':
+                                // Heal Pulse - heal 40%
+                                player.health = Math.min(player.maxHealth, player.health + player.maxHealth * 0.4);
+                                sfxRef.current?.healthPickup();
+                                createParticles(player.x, player.y, '#00ff88', 30, 15);
+                                break;
+
+                            case 'gambler':
+                                // All In - double or nothing
+                                player.gamblerAllIn = true;
+                                player.gamblerAllInShots = 10;
+                                sfxRef.current?.powerup();
+                                createParticles(player.x, player.y, '#ffcc00', 25, 10);
+                                break;
+
+                            case 'paladin':
+                                // Divine Shield - block then heal
+                                player.invulnerable = true;
+                                player.invulnerableUntil = now + 2000;
                                 setTimeout(() => {
-                                    createParticles(x, y, '#ff8800', 20, 10);
-                                    triggerScreenShake(0.3);
-                                    
-                                    // Damage enemies in radius
-                                    gameStateRef.current.enemies.forEach(e => {
-                                        const d = Math.hypot(e.x - x, e.y - y);
-                                        if (d < 80) {
-                                            e.health -= player.damage * 5;
-                                            e.hitFlash = 5;
-                                            createDamageNumber(e.x, e.y - e.size, player.damage * 5, true);
-                                        }
+                                    player.health = Math.min(player.maxHealth, player.health + player.maxHealth * 0.2);
+                                    createParticles(player.x, player.y, '#ffff88', 20, 10);
+                                    sfxRef.current?.healthPickup();
+                                }, 2000);
+                                sfxRef.current?.shieldHit();
+                                createParticles(player.x, player.y, '#ffdd44', 30, 12);
+                                break;
+
+                            case 'necromancer':
+                                // Raise Dead - spawn minions from recent kills
+                                gs.minions = gs.minions || [];
+                                const maxMinions = 5;
+                                for (let i = 0; i < maxMinions && gs.recentKills && gs.recentKills.length > 0; i++) {
+                                    const kill = gs.recentKills.pop();
+                                    gs.minions.push({
+                                        x: kill.x + (Math.random() - 0.5) * 50,
+                                        y: kill.y + (Math.random() - 0.5) * 50,
+                                        health: 30,
+                                        damage: player.damage * 0.5,
+                                        speed: 3,
+                                        size: 15
                                     });
-                                }, i * 100);
-                            }
-                            sfxRef.current?.waveComplete();
+                                }
+                                sfxRef.current?.bossSpawn();
+                                createParticles(player.x, player.y, '#8844aa', 30, 12);
+                                break;
+
+                            case 'elemental':
+                                // Elemental Burst - all elements
+                                const burstRadius = 180;
+                                gs.enemies.forEach(en => {
+                                    const d = Math.hypot(en.x - player.x, en.y - player.y);
+                                    if (d < burstRadius) {
+                                        en.health -= player.damage * 2;
+                                        en.burning = true; en.burnDamage = 3; en.burnEnd = now + 3000;
+                                        en.frozen = true; en.frozenEnd = now + 2000;
+                                        if (!en.originalSpeed) en.originalSpeed = en.speed;
+                                        en.speed *= 0.5;
+                                        en.hitFlash = 15;
+                                    }
+                                });
+                                sfxRef.current?.explosionBig();
+                                triggerScreenShake(0.8);
+                                createParticles(player.x, player.y, '#ff4400', 20, 15);
+                                createParticles(player.x, player.y, '#44aaff', 20, 15);
+                                createParticles(player.x, player.y, '#ffff00', 20, 15);
+                                break;
+
+                            case 'rogue':
+                                // Cheap Shot - stun + 3x damage
+                                player.cheapShot = true;
+                                sfxRef.current?.criticalHit();
+                                createParticles(player.x, player.y, '#44ffaa', 20, 10);
+                                break;
+
+                            case 'glass_cannon':
+                                // Overload - 100% damage then stun
+                                player.overloadUntil = now + 5000;
+                                setTimeout(() => {
+                                    player.stunned = true;
+                                    setTimeout(() => { player.stunned = false; }, 1500);
+                                }, 5000);
+                                sfxRef.current?.powerup();
+                                createParticles(player.x, player.y, '#ff44ff', 30, 15);
+                                break;
                         }
                     }
                 }
