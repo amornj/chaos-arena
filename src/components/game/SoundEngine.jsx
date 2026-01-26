@@ -156,6 +156,35 @@ export function createSFX() {
             playSweep(3000, 800, 0.1, 'sine', 0.08);
         },
 
+        // Hitscan weapon sounds
+        shootLaserRifle: () => {
+            playSweep(1500, 800, 0.06, 'sine', 0.1);
+            playTone(1000, 0.04, 'square', 0.06);
+        },
+
+        shootDeathRay: () => {
+            playTone(400 + Math.random() * 100, 0.03, 'sawtooth', 0.08);
+            playNoise(0.02, 0.04, 3000, 'highpass');
+        },
+
+        shootAntimatter: () => {
+            playSweep(200, 1500, 0.12, 'sawtooth', 0.12);
+            playNoise(0.08, 0.1, 2000);
+            playTone(100, 0.15, 'sine', 0.08);
+        },
+
+        shootDisintegrator: () => {
+            playSweep(100, 3000, 0.15, 'sawtooth', 0.15);
+            playNoise(0.1, 0.12, 4000, 'highpass');
+            setTimeout(() => playTone(50, 0.2, 'sine', 0.1), 80);
+        },
+
+        shootGauss: () => {
+            playTone(150, 0.08, 'square', 0.12);
+            playSweep(500, 2000, 0.1, 'sawtooth', 0.1);
+            playNoise(0.06, 0.08, 1000);
+        },
+
         shootGrenade: () => {
             playTone(400, 0.08, 'triangle', 0.1);
             playTone(200, 0.1, 'square', 0.08);

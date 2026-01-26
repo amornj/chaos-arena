@@ -197,10 +197,19 @@ export default function Game() {
         if (wave >= 15) types.push('megaton', 'apocalypse');
 
         // Boss variants based on wave number
-        let bossType = 'boss_warlord';
-        if (wave >= 10) bossType = ['boss_warlord', 'boss_titan'][Math.floor(Math.random() * 2)];
-        if (wave >= 15) bossType = ['boss_warlord', 'boss_titan', 'boss_overlord'][Math.floor(Math.random() * 3)];
-        if (wave >= 20) bossType = ['boss_titan', 'boss_overlord', 'boss_destroyer'][Math.floor(Math.random() * 3)];
+        // Boss selection based on wave
+        const earlyBosses = ['boss_warlord', 'boss_spitter', 'boss_berserker'];
+        const midBosses = ['boss_titan', 'boss_overlord', 'boss_shambler', 'boss_inferno', 'boss_swarm'];
+        const lateBosses = ['boss_destroyer', 'boss_nuclear', 'boss_phantom', 'boss_sniper', 'boss_frost', 'boss_lightning'];
+        const endgameBosses = ['boss_juggernaut', 'boss_summoner', 'boss_executioner', 'boss_hivemind'];
+
+        let bossPool = earlyBosses;
+        if (wave >= 10) bossPool = [...earlyBosses, ...midBosses];
+        if (wave >= 15) bossPool = [...midBosses, ...lateBosses];
+        if (wave >= 20) bossPool = [...lateBosses, ...endgameBosses];
+        if (wave >= 30) bossPool = endgameBosses;
+
+        const bossType = bossPool[Math.floor(Math.random() * bossPool.length)];
 
         const type = wave % 5 === 0 && gs.enemiesSpawned === 0 ? bossType :
                      types[Math.floor(Math.random() * types.length)];
@@ -255,7 +264,22 @@ export default function Game() {
             boss_warlord: { health: 300 * wave, speed: 1.8, damage: 12, size: 45, color: '#ff0066', points: 100 * wave, bossType: 'warlord' },
             boss_titan: { health: 500 * wave, speed: 1.0, damage: 20, size: 60, color: '#8800ff', points: 150 * wave, bossType: 'titan', armor: 0.25 },
             boss_overlord: { health: 400 * wave, speed: 1.5, damage: 15, size: 55, color: '#ff8800', points: 125 * wave, bossType: 'overlord', shoots: true, rapidFire: true },
-            boss_destroyer: { health: 350 * wave, speed: 2.0, damage: 25, size: 50, color: '#00ff88', points: 175 * wave, bossType: 'destroyer', charges: true, explosiveAttack: true }
+            boss_destroyer: { health: 350 * wave, speed: 2.0, damage: 25, size: 50, color: '#00ff88', points: 175 * wave, bossType: 'destroyer', charges: true, explosiveAttack: true },
+            // New boss types
+            boss_spitter: { health: 320 * wave, speed: 1.4, damage: 10, size: 50, color: '#44ff00', points: 120 * wave, bossType: 'spitter', shoots: true, acidShot: true, createsAcidPools: true },
+            boss_nuclear: { health: 450 * wave, speed: 0.8, damage: 30, size: 65, color: '#00ff00', points: 200 * wave, bossType: 'nuclear', explodes: true, bigExplosion: true, hugeExplosion: true, radiationAura: true },
+            boss_shambler: { health: 380 * wave, speed: 1.2, damage: 8, size: 55, color: '#8844ff', points: 140 * wave, bossType: 'shambler', cloudShooter: true, megaCloud: true },
+            boss_swarm: { health: 280 * wave, speed: 1.6, damage: 8, size: 45, color: '#ff44ff', points: 130 * wave, bossType: 'swarm', spawnsMinions: true, spawnRate: 3000 },
+            boss_phantom: { health: 250 * wave, speed: 2.5, damage: 15, size: 40, color: '#aa00ff', points: 160 * wave, bossType: 'phantom', phasing: true, teleports: true, invisible: true },
+            boss_inferno: { health: 350 * wave, speed: 1.5, damage: 18, size: 50, color: '#ff4400', points: 145 * wave, bossType: 'inferno', leavesFireTrail: true, napalmAttack: true },
+            boss_sniper: { health: 200 * wave, speed: 1.0, damage: 35, size: 42, color: '#00ffaa', points: 155 * wave, bossType: 'sniper', shoots: true, sniperShot: true, tripleSnipe: true },
+            boss_juggernaut: { health: 800 * wave, speed: 0.6, damage: 40, size: 75, color: '#660066', points: 250 * wave, bossType: 'juggernaut', armor: 0.4, regenerates: true },
+            boss_berserker: { health: 300 * wave, speed: 1.8, damage: 15, size: 48, color: '#ff2222', points: 165 * wave, bossType: 'berserker', enrages: true, enrageMultiplier: 3 },
+            boss_summoner: { health: 350 * wave, speed: 1.0, damage: 5, size: 50, color: '#ffff00', points: 180 * wave, bossType: 'summoner', spawnsMinions: true, spawnRate: 2000, summonsBosses: wave >= 25 },
+            boss_lightning: { health: 320 * wave, speed: 2.0, damage: 12, size: 45, color: '#00ffff', points: 170 * wave, bossType: 'lightning', shoots: true, lightningAttack: true, chainLightning: true },
+            boss_frost: { health: 400 * wave, speed: 1.3, damage: 14, size: 55, color: '#88ddff', points: 150 * wave, bossType: 'frost', shoots: true, freezeAttack: true, frostAura: true },
+            boss_executioner: { health: 280 * wave, speed: 2.2, damage: 50, size: 52, color: '#880000', points: 190 * wave, bossType: 'executioner', charges: true, executeThreshold: 0.3 },
+            boss_hivemind: { health: 500 * wave, speed: 0.9, damage: 10, size: 60, color: '#ffaa00', points: 220 * wave, bossType: 'hivemind', spawnsMinions: true, spawnRate: 1500, controlsMinions: true }
         };
 
         const config = enemyConfigs[type];
@@ -514,6 +538,251 @@ export default function Game() {
             });
         }
     }, []);
+
+    const createHitscan = useCallback((hitscanData) => {
+        const gs = gameStateRef.current;
+        if (!gs) return;
+
+        const { player, enemies, canvas, ctx } = gs;
+        const { x, y, angle, range, damage, piercing, color, beamWidth, screenShake,
+                explosive, explosionRadius, chain, chainRange, chainCount,
+                burn, burnDamage, burnDuration, knockback, disintegrate, headshotMultiplier } = hitscanData;
+
+        // Calculate end point
+        const endX = x + Math.cos(angle) * range;
+        const endY = y + Math.sin(angle) * range;
+
+        // Store hitscan beam for rendering
+        gs.hitscanBeams = gs.hitscanBeams || [];
+        gs.hitscanBeams.push({
+            x1: x,
+            y1: y,
+            x2: endX,
+            y2: endY,
+            color,
+            width: beamWidth,
+            life: 1,
+            decay: 0.15
+        });
+
+        // Screen shake
+        if (screenShake && screenShake > 0) {
+            gs.screenShake.intensity = Math.max(gs.screenShake.intensity, screenShake);
+        }
+
+        // Play sound based on weapon characteristics
+        if (disintegrate) {
+            sfxRef.current?.shootRailgun();
+        } else if (explosive) {
+            sfxRef.current?.shootPlasma();
+        } else {
+            sfxRef.current?.shootSniper();
+        }
+
+        // Find all enemies along the line (sorted by distance)
+        const hitEnemies = [];
+        enemies.forEach((e, idx) => {
+            // Point-to-line distance calculation
+            const dx = endX - x;
+            const dy = endY - y;
+            const len = Math.hypot(dx, dy);
+            const nx = dx / len;
+            const ny = dy / len;
+
+            // Vector from ray start to enemy center
+            const ex = e.x - x;
+            const ey = e.y - y;
+
+            // Project enemy onto ray
+            const dot = ex * nx + ey * ny;
+
+            // Check if projection is within ray length
+            if (dot < 0 || dot > len) return;
+
+            // Closest point on ray to enemy center
+            const closestX = x + nx * dot;
+            const closestY = y + ny * dot;
+
+            // Distance from closest point to enemy center
+            const dist = Math.hypot(e.x - closestX, e.y - closestY);
+
+            // Check if beam hits enemy (beam width + enemy size)
+            if (dist < e.size + beamWidth / 2) {
+                hitEnemies.push({ enemy: e, index: idx, distance: dot });
+            }
+        });
+
+        // Sort by distance (closest first)
+        hitEnemies.sort((a, b) => a.distance - b.distance);
+
+        // Apply damage to hit enemies (respecting piercing)
+        let enemiesHit = 0;
+        const maxHits = piercing + 1;
+        const chainTargets = [];
+
+        for (const hit of hitEnemies) {
+            if (enemiesHit >= maxHits) break;
+
+            const e = hit.enemy;
+            let finalDamage = damage;
+
+            // Headshot multiplier (random chance for "critical" on hitscan)
+            let isCrit = false;
+            if (headshotMultiplier && Math.random() < 0.15) {
+                finalDamage *= headshotMultiplier;
+                isCrit = true;
+            }
+
+            // Apply player crit
+            if (!isCrit && player.critChance && Math.random() < player.critChance) {
+                finalDamage *= player.critMultiplier || 2;
+                isCrit = true;
+            }
+
+            // Armor reduction
+            if (e.armor) {
+                finalDamage *= (1 - e.armor);
+            }
+
+            e.health -= finalDamage;
+            e.hitFlash = 5;
+            createDamageNumber(e.x, e.y - e.size, finalDamage, isCrit);
+
+            // Impact particles
+            const hitX = x + Math.cos(angle) * hit.distance;
+            const hitY = y + Math.sin(angle) * hit.distance;
+            gs.particles.push({
+                x: hitX,
+                y: hitY,
+                vx: -Math.cos(angle) * 3 + (Math.random() - 0.5) * 4,
+                vy: -Math.sin(angle) * 3 + (Math.random() - 0.5) * 4,
+                life: 1,
+                decay: 0.1,
+                size: 6,
+                color: color,
+                type: 'spark'
+            });
+
+            // Knockback
+            if (knockback && knockback > 0) {
+                e.x += Math.cos(angle) * knockback;
+                e.y += Math.sin(angle) * knockback;
+            }
+
+            // Burn effect
+            if (burn) {
+                e.burning = true;
+                e.burnDamage = burnDamage || 2;
+                e.burnEnd = Date.now() + (burnDuration || 2000);
+            }
+
+            // Explosive hit
+            if (explosive && explosionRadius) {
+                createParticles(e.x, e.y, '#ff8800', 15, 8);
+                createRingExplosion(e.x, e.y, color, explosionRadius);
+                // Damage nearby enemies
+                enemies.forEach(other => {
+                    if (other !== e) {
+                        const d = Math.hypot(other.x - e.x, other.y - e.y);
+                        if (d < explosionRadius) {
+                            const splashDmg = finalDamage * 0.5 * (1 - d / explosionRadius);
+                            other.health -= splashDmg;
+                            other.hitFlash = 3;
+                            createDamageNumber(other.x, other.y - other.size, splashDmg, false);
+                        }
+                    }
+                });
+            }
+
+            // Disintegrate effect (instant kill low health enemies)
+            if (disintegrate && e.health <= e.maxHealth * 0.3) {
+                e.health = 0;
+                createParticles(e.x, e.y, '#ff4400', 30, 12);
+                sfxRef.current?.criticalHit();
+            }
+
+            // Chain lightning tracking
+            if (chain) {
+                chainTargets.push(e);
+            }
+
+            // Lifesteal
+            if (player.lifesteal > 0) {
+                player.health = Math.min(player.maxHealth, player.health + finalDamage * player.lifesteal);
+            }
+
+            enemiesHit++;
+
+            // Create beam termination point at hit location (shorten beam visually)
+            if (enemiesHit >= maxHits && gs.hitscanBeams.length > 0) {
+                const beam = gs.hitscanBeams[gs.hitscanBeams.length - 1];
+                beam.x2 = hitX;
+                beam.y2 = hitY;
+            }
+        }
+
+        // Chain lightning effect
+        if (chain && chainTargets.length > 0 && chainCount > 0) {
+            let lastTarget = chainTargets[chainTargets.length - 1];
+            let chainsRemaining = chainCount;
+
+            while (chainsRemaining > 0 && lastTarget) {
+                let nearestEnemy = null;
+                let nearestDist = chainRange || 100;
+
+                enemies.forEach(e => {
+                    if (e !== lastTarget && !chainTargets.includes(e)) {
+                        const d = Math.hypot(e.x - lastTarget.x, e.y - lastTarget.y);
+                        if (d < nearestDist) {
+                            nearestDist = d;
+                            nearestEnemy = e;
+                        }
+                    }
+                });
+
+                if (nearestEnemy) {
+                    // Draw chain beam
+                    gs.hitscanBeams.push({
+                        x1: lastTarget.x,
+                        y1: lastTarget.y,
+                        x2: nearestEnemy.x,
+                        y2: nearestEnemy.y,
+                        color: '#ffff00',
+                        width: 2,
+                        life: 1,
+                        decay: 0.2
+                    });
+
+                    // Chain damage (reduced)
+                    const chainDamage = damage * 0.5;
+                    nearestEnemy.health -= chainDamage;
+                    nearestEnemy.hitFlash = 3;
+                    createDamageNumber(nearestEnemy.x, nearestEnemy.y - nearestEnemy.size, chainDamage, false);
+
+                    chainTargets.push(nearestEnemy);
+                    lastTarget = nearestEnemy;
+                    chainsRemaining--;
+
+                    sfxRef.current?.chainLightning();
+                } else {
+                    break;
+                }
+            }
+        }
+
+        // Muzzle flash
+        gs.particles.push({
+            x: x + Math.cos(angle) * 25,
+            y: y + Math.sin(angle) * 25,
+            vx: 0,
+            vy: 0,
+            life: 1,
+            decay: 0.3,
+            size: beamWidth * 3,
+            color: color,
+            type: 'default'
+        });
+    }, [createParticles, createDamageNumber, createRingExplosion]);
 
     const createDamageNumber = useCallback((x, y, damage, isCrit = false) => {
         const gs = gameStateRef.current;
@@ -1011,8 +1280,9 @@ export default function Game() {
 
         // Calculate final speed multiplier
         const afterburnerBonus = (player.afterburnerUntil && now < player.afterburnerUntil) ? 2 : 1;
+        const frostSlowPenalty = (player.frostSlowed && player.frostSlowUntil > now) ? 0.5 : 1;
         const speedMultiplier = (player.dashActive ? 4 : (player.isSprinting ? 1.5 : 1))
-            * momentumBonus * quickstepBonus * slipstreamBonus * (nitroActive ? 2 : 1) * afterburnerBonus;
+            * momentumBonus * quickstepBonus * slipstreamBonus * (nitroActive ? 2 : 1) * afterburnerBonus * frostSlowPenalty;
 
         if (dx !== 0 || dy !== 0) {
             const len = Math.sqrt(dx * dx + dy * dy);
@@ -1186,7 +1456,7 @@ export default function Game() {
             }
 
             // Use weapon system
-            shootWeapon(player.currentWeapon, player, mouse.x, mouse.y, shootBullet, createMeleeAttack);
+            shootWeapon(player.currentWeapon, player, mouse.x, mouse.y, shootBullet, createMeleeAttack, createHitscan);
         }
 
         // Spawn enemies
@@ -3244,41 +3514,57 @@ export default function Game() {
             // Draw filled swing arc (like a pie slice)
             const startAngle = attack.angle - attack.swingArc / 2;
             const endAngle = startAngle + attack.swingArc * swingProgress;
+            const fadeMultiplier = 1 - attack.progress * 0.3;
 
-            // Outer glow arc
-            ctx.globalAlpha = 0.3 * (1 - attack.progress);
+            // Outermost glow arc (very wide, faint)
+            ctx.globalAlpha = 0.25 * fadeMultiplier;
             ctx.fillStyle = attack.color;
             ctx.shadowColor = attack.color;
-            ctx.shadowBlur = 20;
+            ctx.shadowBlur = 40;
             ctx.beginPath();
             ctx.moveTo(0, 0);
-            ctx.arc(0, 0, attack.range * 1.1, startAngle, endAngle);
+            ctx.arc(0, 0, attack.range * 1.2, startAngle, endAngle);
             ctx.closePath();
             ctx.fill();
 
-            // Main swing arc
-            ctx.globalAlpha = 0.5 * (1 - attack.progress * 0.5);
+            // Outer colored arc
+            ctx.globalAlpha = 0.6 * fadeMultiplier;
+            ctx.shadowBlur = 25;
             ctx.beginPath();
             ctx.moveTo(0, 0);
             ctx.arc(0, 0, attack.range, startAngle, endAngle);
             ctx.closePath();
             ctx.fill();
 
-            // Inner bright arc
-            ctx.globalAlpha = 0.7 * (1 - attack.progress * 0.3);
-            ctx.fillStyle = '#ffffff';
+            // Middle bright arc
+            ctx.globalAlpha = 0.8 * fadeMultiplier;
+            const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, attack.range);
+            gradient.addColorStop(0, '#ffffff');
+            gradient.addColorStop(0.3, attack.color);
+            gradient.addColorStop(1, attack.color);
+            ctx.fillStyle = gradient;
             ctx.beginPath();
             ctx.moveTo(0, 0);
-            ctx.arc(0, 0, attack.range * 0.6, startAngle, endAngle);
+            ctx.arc(0, 0, attack.range * 0.85, startAngle, endAngle);
             ctx.closePath();
             ctx.fill();
 
-            // Draw main swing blade (leading edge)
-            ctx.globalAlpha = 1 - attack.progress * 0.5;
-            ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = 6;
+            // Inner white hot arc
+            ctx.globalAlpha = 0.9 * fadeMultiplier;
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.arc(0, 0, attack.range * 0.4, startAngle, endAngle);
+            ctx.closePath();
+            ctx.fill();
+
+            // Draw leading edge blade (thick glowing line)
+            ctx.globalAlpha = fadeMultiplier;
+            ctx.strokeStyle = attack.color;
+            ctx.lineWidth = 12;
+            ctx.lineCap = 'round';
             ctx.shadowColor = attack.color;
-            ctx.shadowBlur = 30;
+            ctx.shadowBlur = 35;
             ctx.beginPath();
             ctx.moveTo(0, 0);
             ctx.lineTo(
@@ -3287,25 +3573,38 @@ export default function Game() {
             );
             ctx.stroke();
 
-            // Draw blade tip glow
+            // White core of the blade
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 6;
+            ctx.shadowBlur = 20;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(
+                Math.cos(currentAngle) * attack.range,
+                Math.sin(currentAngle) * attack.range
+            );
+            ctx.stroke();
+
+            // Draw blade tip glow (larger)
             ctx.fillStyle = attack.color;
+            ctx.globalAlpha = fadeMultiplier;
             ctx.beginPath();
             ctx.arc(
                 Math.cos(currentAngle) * attack.range,
                 Math.sin(currentAngle) * attack.range,
-                10 * (1 - attack.progress),
+                18 * fadeMultiplier,
                 0, Math.PI * 2
             );
             ctx.fill();
 
-            // White hot tip
+            // White hot tip center
             ctx.fillStyle = '#ffffff';
-            ctx.globalAlpha = 0.8 * (1 - attack.progress);
+            ctx.globalAlpha = 0.9 * fadeMultiplier;
             ctx.beginPath();
             ctx.arc(
                 Math.cos(currentAngle) * attack.range,
                 Math.sin(currentAngle) * attack.range,
-                5 * (1 - attack.progress),
+                8 * fadeMultiplier,
                 0, Math.PI * 2
             );
             ctx.fill();
@@ -3801,22 +4100,309 @@ export default function Game() {
             }
 
             // Cloud shooter (Shambler)
-            if (e.cloudShooter && now - e.lastShot > 3000) {
+            if (e.cloudShooter && now - e.lastShot > (e.megaCloud ? 2000 : 3000)) {
                 e.lastShot = now;
+                const angle = Math.atan2(player.y - e.y, player.x - e.x);
+                const cloudCount = e.megaCloud ? 5 : 1;
+                for (let c = 0; c < cloudCount; c++) {
+                    const spreadAngle = angle + (c - Math.floor(cloudCount / 2)) * 0.3;
+                    gs.bullets.push({
+                        x: e.x,
+                        y: e.y,
+                        vx: Math.cos(spreadAngle) * 3,
+                        vy: Math.sin(spreadAngle) * 3,
+                        damage: e.damage * (e.megaCloud ? 0.8 : 0.5),
+                        isEnemy: true,
+                        piercing: 0,
+                        size: e.megaCloud ? 25 : 15,
+                        color: e.megaCloud ? '#aa44ff' : '#8888ff',
+                        isCloud: true,
+                        lifetime: e.megaCloud ? 300 : 180
+                    });
+                }
+            }
+
+            // === BOSS SPECIAL ABILITIES ===
+
+            // Boss Spitter - creates acid pools on hit location
+            if (e.createsAcidPools && e.shoots && now - (e.lastAcidPool || 0) > 4000) {
+                e.lastAcidPool = now;
+                const angle = Math.atan2(player.y - e.y, player.x - e.x);
+                for (let a = 0; a < 3; a++) {
+                    const spreadAngle = angle + (a - 1) * 0.4;
+                    gs.bullets.push({
+                        x: e.x,
+                        y: e.y,
+                        vx: Math.cos(spreadAngle) * 6,
+                        vy: Math.sin(spreadAngle) * 6,
+                        damage: e.damage,
+                        isEnemy: true,
+                        piercing: 0,
+                        size: 12,
+                        color: '#44ff00',
+                        acid: true,
+                        createsPool: true
+                    });
+                }
+            }
+
+            // Boss Nuclear - radiation aura damages nearby player
+            if (e.radiationAura) {
+                const radDist = Math.hypot(player.x - e.x, player.y - e.y);
+                const radRadius = 150;
+                if (radDist < radRadius && !player.invulnerable) {
+                    // Tick radiation damage
+                    if (!e.lastRadTick || now - e.lastRadTick > 500) {
+                        e.lastRadTick = now;
+                        const radDamage = 3 * (1 - radDist / radRadius);
+                        player.health -= radDamage;
+                        createDamageNumber(player.x, player.y - PLAYER_SIZE, radDamage, false);
+                        createParticles(player.x, player.y, '#00ff00', 3, 3);
+                    }
+                }
+                // Draw radiation aura
+                ctx.globalAlpha = 0.15 + Math.sin(now * 0.005) * 0.05;
+                ctx.fillStyle = '#00ff00';
+                ctx.beginPath();
+                ctx.arc(e.x, e.y, radRadius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 1;
+            }
+
+            // Boss Swarm/Summoner - spawns minions
+            if (e.spawnsMinions && now - (e.lastSpawn || 0) > (e.spawnRate || 3000)) {
+                e.lastSpawn = now;
+                const spawnCount = e.summonsBosses ? 1 : 3;
+                for (let s = 0; s < spawnCount; s++) {
+                    const spawnAngle = Math.random() * Math.PI * 2;
+                    const spawnDist = e.size + 30;
+                    const minionTypes = e.summonsBosses ? ['brute', 'charger', 'bloater'] : ['basic', 'runner', 'crawler'];
+                    const minionType = minionTypes[Math.floor(Math.random() * minionTypes.length)];
+                    const minionConfig = {
+                        basic: { health: 30, speed: 2, damage: 5, size: 18, color: '#ff4444', points: 10 },
+                        runner: { health: 15, speed: 3, damage: 3, size: 14, color: '#ff6666', points: 12 },
+                        crawler: { health: 20, speed: 2.5, damage: 4, size: 12, color: '#ff5555', points: 14 },
+                        brute: { health: 60, speed: 1.5, damage: 12, size: 24, color: '#cc2222', points: 25 },
+                        charger: { health: 50, speed: 2, damage: 15, size: 22, color: '#aa1111', points: 30, charges: true },
+                        bloater: { health: 25, speed: 2, damage: 5, size: 20, color: '#ff8844', points: 20, explodes: true, fuseTime: 3 }
+                    }[minionType];
+
+                    enemies.push({
+                        x: e.x + Math.cos(spawnAngle) * spawnDist,
+                        y: e.y + Math.sin(spawnAngle) * spawnDist,
+                        health: minionConfig.health * gs.difficultyMultiplier,
+                        maxHealth: minionConfig.health * gs.difficultyMultiplier,
+                        speed: minionConfig.speed,
+                        baseSpeed: minionConfig.speed,
+                        damage: minionConfig.damage * gs.difficultyMultiplier,
+                        size: minionConfig.size,
+                        color: minionConfig.color,
+                        points: minionConfig.points,
+                        type: minionType,
+                        lastShot: 0,
+                        lastMeleeHit: 0,
+                        hitFlash: 0,
+                        charges: minionConfig.charges,
+                        explodes: minionConfig.explodes,
+                        fuseTime: minionConfig.fuseTime,
+                        spawnedByBoss: true
+                    });
+                    createParticles(e.x + Math.cos(spawnAngle) * spawnDist, e.y + Math.sin(spawnAngle) * spawnDist, e.color, 10, 5);
+                }
+                sfxRef.current?.bossSpawn();
+            }
+
+            // Boss Phantom - teleports periodically
+            if (e.teleports && now - (e.lastTeleport || 0) > 5000) {
+                e.lastTeleport = now;
+                // Teleport to random position near player
+                const teleAngle = Math.random() * Math.PI * 2;
+                const teleDist = 150 + Math.random() * 100;
+                const newX = player.x + Math.cos(teleAngle) * teleDist;
+                const newY = player.y + Math.sin(teleAngle) * teleDist;
+                // Clamp to canvas
+                createParticles(e.x, e.y, '#aa00ff', 20, 8);
+                e.x = Math.max(50, Math.min(canvas.width - 50, newX));
+                e.y = Math.max(50, Math.min(canvas.height - 50, newY));
+                createParticles(e.x, e.y, '#aa00ff', 20, 8);
+                sfxRef.current?.dash();
+            }
+
+            // Boss Inferno - napalm attack
+            if (e.napalmAttack && now - (e.lastNapalm || 0) > 6000) {
+                e.lastNapalm = now;
+                // Launch napalm projectiles
+                for (let n = 0; n < 4; n++) {
+                    const napalmAngle = (n / 4) * Math.PI * 2;
+                    gs.bullets.push({
+                        x: e.x,
+                        y: e.y,
+                        vx: Math.cos(napalmAngle) * 5,
+                        vy: Math.sin(napalmAngle) * 5,
+                        damage: e.damage * 0.5,
+                        isEnemy: true,
+                        piercing: 0,
+                        size: 15,
+                        color: '#ff4400',
+                        napalm: true,
+                        createsFireZone: true
+                    });
+                }
+                sfxRef.current?.shootNapalm();
+            }
+
+            // Boss Sniper - triple snipe
+            if (e.tripleSnipe && e.sniperShot && now - (e.lastTripleSnipe || 0) > 6000) {
+                e.lastTripleSnipe = now;
+                sfxRef.current?.sniperCharge();
+                // Charge indicator
+                e.charging = true;
+                e.chargeUntil = now + 1500;
+                setTimeout(() => {
+                    if (e.health > 0) {
+                        for (let s = 0; s < 3; s++) {
+                            setTimeout(() => {
+                                if (e.health > 0) {
+                                    const angle = Math.atan2(player.y - e.y, player.x - e.x);
+                                    gs.bullets.push({
+                                        x: e.x,
+                                        y: e.y,
+                                        vx: Math.cos(angle) * 20,
+                                        vy: Math.sin(angle) * 20,
+                                        damage: e.damage * 2,
+                                        isEnemy: true,
+                                        piercing: 0,
+                                        size: 10,
+                                        color: '#00ffaa',
+                                        sniper: true
+                                    });
+                                    sfxRef.current?.shootSniper();
+                                }
+                            }, s * 200);
+                        }
+                        e.charging = false;
+                    }
+                }, 1500);
+            }
+
+            // Boss Lightning - chain lightning attack
+            if (e.lightningAttack && now - (e.lastLightning || 0) > 3000) {
+                e.lastLightning = now;
                 const angle = Math.atan2(player.y - e.y, player.x - e.x);
                 gs.bullets.push({
                     x: e.x,
                     y: e.y,
-                    vx: Math.cos(angle) * 3,
-                    vy: Math.sin(angle) * 3,
-                    damage: e.damage * 0.5,
+                    vx: Math.cos(angle) * 12,
+                    vy: Math.sin(angle) * 12,
+                    damage: e.damage,
                     isEnemy: true,
                     piercing: 0,
-                    size: 15,
-                    color: '#8888ff',
-                    isCloud: true,
-                    lifetime: 180
+                    size: 12,
+                    color: '#00ffff',
+                    lightning: true,
+                    chainLightning: e.chainLightning,
+                    chainRange: 100,
+                    chains: 3
                 });
+                sfxRef.current?.shootLightning();
+            }
+
+            // Boss Frost - freeze attack and frost aura
+            if (e.freezeAttack && now - (e.lastFreeze || 0) > 2500) {
+                e.lastFreeze = now;
+                const angle = Math.atan2(player.y - e.y, player.x - e.x);
+                for (let f = 0; f < 3; f++) {
+                    const frostAngle = angle + (f - 1) * 0.3;
+                    gs.bullets.push({
+                        x: e.x,
+                        y: e.y,
+                        vx: Math.cos(frostAngle) * 8,
+                        vy: Math.sin(frostAngle) * 8,
+                        damage: e.damage * 0.6,
+                        isEnemy: true,
+                        piercing: 0,
+                        size: 10,
+                        color: '#88ddff',
+                        cryo: true,
+                        freezesPlayer: true
+                    });
+                }
+            }
+
+            // Frost aura slows player
+            if (e.frostAura) {
+                const frostDist = Math.hypot(player.x - e.x, player.y - e.y);
+                const frostRadius = 120;
+                if (frostDist < frostRadius) {
+                    player.frostSlowed = true;
+                    player.frostSlowUntil = now + 500;
+                }
+                // Draw frost aura
+                ctx.globalAlpha = 0.1 + Math.sin(now * 0.003) * 0.05;
+                ctx.fillStyle = '#88ddff';
+                ctx.beginPath();
+                ctx.arc(e.x, e.y, frostRadius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 1;
+            }
+
+            // Boss Berserker - enrage when damaged
+            if (e.enrages && e.enrageMultiplier) {
+                const healthPercent = e.health / e.maxHealth;
+                const enrageLevel = Math.floor((1 - healthPercent) * 4); // 0-4 levels
+                if (enrageLevel > (e.currentEnrage || 0)) {
+                    e.currentEnrage = enrageLevel;
+                    e.speed = e.baseSpeed * (1 + enrageLevel * 0.3);
+                    e.damage = e.damage * 1.2;
+                    createParticles(e.x, e.y, '#ff0000', 15, 6);
+                    // Visual indicator
+                    e.enragedGlow = true;
+                }
+            }
+
+            // Boss Executioner - execute low health players
+            if (e.executeThreshold && e.charges) {
+                const playerHealthPercent = player.health / player.maxHealth;
+                if (playerHealthPercent < e.executeThreshold && !e.executeDash) {
+                    e.executeDash = true;
+                    e.speed = e.baseSpeed * 4; // Super fast dash
+                    e.damage = e.damage * 3; // Triple damage
+                    createParticles(e.x, e.y, '#880000', 20, 8);
+                    sfxRef.current?.danger();
+                }
+            }
+
+            // Boss Hivemind - controlled minions are stronger
+            if (e.controlsMinions) {
+                enemies.forEach(other => {
+                    if (other.spawnedByBoss && other !== e) {
+                        const distToBoss = Math.hypot(other.x - e.x, other.y - e.y);
+                        if (distToBoss < 300) {
+                            other.boosted = true;
+                            other.speed = other.baseSpeed * 1.5;
+                        }
+                    }
+                });
+            }
+
+            // Draw boss charging indicator
+            if (e.charging && e.chargeUntil > now) {
+                const chargeProgress = 1 - (e.chargeUntil - now) / 1500;
+                ctx.strokeStyle = '#ff0000';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(e.x, e.y, e.size + 10, 0, Math.PI * 2 * chargeProgress);
+                ctx.stroke();
+            }
+
+            // Draw enraged glow
+            if (e.enragedGlow) {
+                ctx.globalAlpha = 0.3 + Math.sin(now * 0.01) * 0.1;
+                ctx.fillStyle = '#ff0000';
+                ctx.beginPath();
+                ctx.arc(e.x, e.y, e.size + 15, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 1;
             }
 
             // Player collision
@@ -4002,6 +4588,55 @@ export default function Game() {
             ctx.beginPath();
             ctx.arc(t.x, t.y, t.size * t.life, 0, Math.PI * 2);
             ctx.fill();
+            ctx.shadowBlur = 0;
+            ctx.globalAlpha = 1;
+        }
+
+        // Update and draw hitscan beams
+        gs.hitscanBeams = gs.hitscanBeams || [];
+        for (let i = gs.hitscanBeams.length - 1; i >= 0; i--) {
+            const beam = gs.hitscanBeams[i];
+            beam.life -= beam.decay;
+
+            if (beam.life <= 0) {
+                gs.hitscanBeams.splice(i, 1);
+                continue;
+            }
+
+            // Outer glow
+            ctx.globalAlpha = beam.life * 0.3;
+            ctx.strokeStyle = beam.color;
+            ctx.lineWidth = beam.width * 3;
+            ctx.shadowColor = beam.color;
+            ctx.shadowBlur = 30;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(beam.x1, beam.y1);
+            ctx.lineTo(beam.x2, beam.y2);
+            ctx.stroke();
+
+            // Middle layer
+            ctx.globalAlpha = beam.life * 0.6;
+            ctx.lineWidth = beam.width * 1.5;
+            ctx.stroke();
+
+            // Core (white hot)
+            ctx.globalAlpha = beam.life;
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = beam.width * 0.5;
+            ctx.shadowBlur = 15;
+            ctx.beginPath();
+            ctx.moveTo(beam.x1, beam.y1);
+            ctx.lineTo(beam.x2, beam.y2);
+            ctx.stroke();
+
+            // Impact point flash
+            ctx.fillStyle = beam.color;
+            ctx.globalAlpha = beam.life * 0.8;
+            ctx.beginPath();
+            ctx.arc(beam.x2, beam.y2, beam.width * 2 * beam.life, 0, Math.PI * 2);
+            ctx.fill();
+
             ctx.shadowBlur = 0;
             ctx.globalAlpha = 1;
         }

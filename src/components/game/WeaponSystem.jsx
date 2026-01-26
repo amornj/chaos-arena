@@ -178,8 +178,8 @@ export const WEAPONS = {
     },
     beam: {
         name: 'Beam Cannon',
-        damage: 0.2,
-        fireRate: 0.05,
+        damage: 0.4,
+        fireRate: 0.12,
         spread: 0,
         projectiles: 1,
         piercing: 5,
@@ -224,8 +224,8 @@ export const WEAPONS = {
     },
     smg: {
         name: 'SMG',
-        damage: 0.4,
-        fireRate: 0.12,
+        damage: 0.5,
+        fireRate: 0.18,
         spread: 0.2,
         projectiles: 1,
         piercing: 0,
@@ -284,8 +284,8 @@ export const WEAPONS = {
     },
     orbital_laser: {
         name: 'Orbital Laser',
-        damage: 0.5,
-        fireRate: 0.08,
+        damage: 0.8,
+        fireRate: 0.15,
         spread: 0,
         projectiles: 1,
         piercing: 99,
@@ -452,6 +452,136 @@ export const WEAPONS = {
         explosive: true,
         explosionRadius: 65,
         impact: true
+    },
+
+    // === HITSCAN WEAPONS ===
+    laser_rifle: {
+        name: 'Laser Rifle',
+        damage: 2.5,
+        fireRate: 0.8,
+        spread: 0,
+        piercing: 2,
+        color: '#ff0000',
+        hitscan: true,
+        range: 800,
+        beamWidth: 3
+    },
+    railgun_instant: {
+        name: 'Instant Railgun',
+        damage: 12,
+        fireRate: 2.5,
+        spread: 0,
+        piercing: 99,
+        color: '#00ffff',
+        hitscan: true,
+        range: 2000,
+        beamWidth: 6,
+        screenShake: 0.4
+    },
+    death_ray: {
+        name: 'Death Ray',
+        damage: 1.2,
+        fireRate: 0.1,
+        spread: 0,
+        piercing: 99,
+        color: '#ff00ff',
+        hitscan: true,
+        range: 600,
+        beamWidth: 8,
+        continuous: true
+    },
+    antimatter_beam: {
+        name: 'Antimatter Beam',
+        damage: 6,
+        fireRate: 1.5,
+        spread: 0,
+        piercing: 5,
+        color: '#8800ff',
+        hitscan: true,
+        range: 1000,
+        beamWidth: 10,
+        explosive: true,
+        explosionRadius: 40,
+        screenShake: 0.3
+    },
+    sniper_hitscan: {
+        name: 'Marksman Rifle',
+        damage: 15,
+        fireRate: 2,
+        spread: 0,
+        piercing: 3,
+        color: '#00ff88',
+        hitscan: true,
+        range: 1500,
+        beamWidth: 2,
+        headshotMultiplier: 3,
+        screenShake: 0.2
+    },
+    particle_beam: {
+        name: 'Particle Beam',
+        damage: 1.5,
+        fireRate: 0.15,
+        spread: 0.05,
+        piercing: 1,
+        color: '#ffff00',
+        hitscan: true,
+        range: 500,
+        beamWidth: 4,
+        chain: true,
+        chainRange: 100,
+        chainCount: 3
+    },
+    disintegrator: {
+        name: 'Disintegrator',
+        damage: 20,
+        fireRate: 4,
+        spread: 0,
+        piercing: 1,
+        color: '#ff4400',
+        hitscan: true,
+        range: 400,
+        beamWidth: 15,
+        disintegrate: true,
+        screenShake: 0.5
+    },
+    photon_lance: {
+        name: 'Photon Lance',
+        damage: 4,
+        fireRate: 1,
+        spread: 0,
+        piercing: 10,
+        color: '#ffffff',
+        hitscan: true,
+        range: 1200,
+        beamWidth: 5,
+        burn: true,
+        burnDamage: 2,
+        burnDuration: 2000
+    },
+    gauss_cannon: {
+        name: 'Gauss Cannon',
+        damage: 8,
+        fireRate: 1.8,
+        spread: 0,
+        piercing: 4,
+        color: '#4488ff',
+        hitscan: true,
+        range: 900,
+        beamWidth: 7,
+        knockback: 15,
+        screenShake: 0.35
+    },
+    tracer_gun: {
+        name: 'Tracer Gun',
+        damage: 1.2,
+        fireRate: 0.15,
+        spread: 0.15,
+        piercing: 0,
+        color: '#ffaa00',
+        hitscan: true,
+        range: 600,
+        beamWidth: 2,
+        multishot: 2
     },
 
     // === MELEE WEAPONS ===
@@ -988,10 +1118,44 @@ export function createGearUpgrade(gearKey) {
     };
 }
 
-export function shootWeapon(weapon, player, targetX, targetY, createBullet, createMeleeAttack) {
+export function shootWeapon(weapon, player, targetX, targetY, createBullet, createMeleeAttack, createHitscan) {
     const weaponData = WEAPONS[weapon];
     const baseAngle = Math.atan2(targetY - player.y, targetX - player.x);
     const multishot = player.multishot || 1;
+
+    // Hitscan weapon handling
+    if (weaponData.hitscan) {
+        if (createHitscan) {
+            const shotCount = weaponData.multishot || 1;
+            for (let s = 0; s < shotCount; s++) {
+                const spreadAngle = baseAngle + (Math.random() - 0.5) * (weaponData.spread || 0);
+                createHitscan({
+                    x: player.x,
+                    y: player.y,
+                    angle: spreadAngle,
+                    range: weaponData.range || 800,
+                    damage: player.damage * weaponData.damage,
+                    piercing: weaponData.piercing + (player.piercing || 0),
+                    color: weaponData.color,
+                    beamWidth: weaponData.beamWidth || 3,
+                    screenShake: weaponData.screenShake || 0,
+                    explosive: weaponData.explosive,
+                    explosionRadius: weaponData.explosionRadius,
+                    chain: weaponData.chain,
+                    chainRange: weaponData.chainRange,
+                    chainCount: weaponData.chainCount,
+                    burn: weaponData.burn,
+                    burnDamage: weaponData.burnDamage,
+                    burnDuration: weaponData.burnDuration,
+                    knockback: weaponData.knockback,
+                    disintegrate: weaponData.disintegrate,
+                    headshotMultiplier: weaponData.headshotMultiplier,
+                    continuous: weaponData.continuous
+                });
+            }
+        }
+        return;
+    }
 
     // Melee weapon handling
     if (weaponData.melee) {
