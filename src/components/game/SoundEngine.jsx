@@ -134,6 +134,13 @@ export function createSFX() {
             playTone(60, 0.2, 'sine', 0.1);
         },
 
+        chainsaw: () => {
+            // Aggressive buzzing chainsaw sound
+            playTone(80 + Math.random() * 20, 0.04, 'sawtooth', 0.12);
+            playTone(120 + Math.random() * 30, 0.03, 'square', 0.08);
+            playNoise(0.03, 0.06, 1500);
+        },
+
         shootFlamethrower: () => {
             playTone(200, 0.03, 'sawtooth', 0.06);
             playNoise(0.02, 0.04, 2000);

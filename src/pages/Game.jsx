@@ -484,11 +484,15 @@ export default function Game() {
             hitEnemies: [] // Track which enemies were hit to prevent multi-hit
         });
 
-        // Play melee sound
-        sfxRef.current?.meleeSwing();
+        // Play melee sound (chainsaw has unique sound)
+        if (attackData.chainsaw) {
+            sfxRef.current?.chainsaw();
+        } else {
+            sfxRef.current?.meleeSwing();
+        }
 
-        // Create swing particles
-        const particleCount = 8;
+        // Create swing particles (more for chainsaw)
+        const particleCount = attackData.chainsaw ? 12 : 8;
         for (let i = 0; i < particleCount; i++) {
             const t = i / particleCount;
             const particleAngle = attackData.angle - attackData.swingArc / 2 + attackData.swingArc * t;
@@ -3136,11 +3140,26 @@ export default function Game() {
                     const gs = gameStateRef.current;
                     if (gs && e.key.toLowerCase() === 'p' && gs.player.currentWeapon === 'overpump_jackhammer') {
                         e.preventDefault();
-                        gs.player.overpumpStacks = Math.min(4, (gs.player.overpumpStacks || 0) + 1);
-                        gs.player.pumpingUntil = Date.now() + 300; // Vibrate for 300ms
+                        const newStacks = Math.min(4, (gs.player.overpumpStacks || 0) + 1);
+                        gs.player.overpumpStacks = newStacks;
+                        gs.player.pumpingUntil = Date.now() + 400; // Vibrate for 400ms
                         sfxRef.current?.meleeHeavy();
-                        // Visual feedback
-                        createParticles(gs.player.x, gs.player.y, '#ff8800', 8, 5);
+                        // Screen shake - intensity increases with pump level (ULTRAKILL style!)
+                        gs.screenShake.intensity = Math.max(gs.screenShake.intensity, 0.4 + newStacks * 0.2);
+                        // Visual feedback - more particles with each pump
+                        createParticles(gs.player.x, gs.player.y, '#ff8800', 10 + newStacks * 5, 6 + newStacks * 2);
+                        createParticles(gs.player.x, gs.player.y, '#ffff00', 5 + newStacks * 3, 4 + newStacks);
+                        // Ring explosion effect
+                        gs.ringEffects = gs.ringEffects || [];
+                        gs.ringEffects.push({
+                            x: gs.player.x,
+                            y: gs.player.y,
+                            color: '#ff8800',
+                            radius: 0,
+                            maxRadius: 40 + newStacks * 20,
+                            life: 1,
+                            lineWidth: 4 + newStacks * 2
+                        });
                         return;
                     }
                 }

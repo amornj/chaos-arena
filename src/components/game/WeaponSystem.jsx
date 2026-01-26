@@ -362,10 +362,10 @@ export const WEAPONS = {
         damage: 1,
         fireRate: 0.08,
         melee: true,
-        range: 50,
-        swingArc: Math.PI * 0.3,
+        range: 80,
+        swingArc: Math.PI * 0.4,
         color: '#ffaa00',
-        knockback: 2,
+        knockback: 4,
         cleave: false,
         speedScaling: true, // damage = speed
         desc: 'Damage scales with your speed!'
@@ -399,13 +399,29 @@ export const WEAPONS = {
         damage: 2,
         fireRate: 0.5,
         melee: true,
-        range: 55,
-        swingArc: Math.PI * 0.4,
+        range: 85,
+        swingArc: Math.PI * 0.5,
         color: '#ff8800',
-        knockback: 8,
+        knockback: 12,
         cleave: true,
         overpump: true, // Press P to pump, up to 4 times
         desc: 'Press P to PUMP IT UP! (2+ pumps = explosion)'
+    },
+    chainsaw: {
+        name: 'Chainsaw',
+        damage: 0.8,
+        fireRate: 0.05, // Very fast hits
+        melee: true,
+        range: 60,
+        swingArc: Math.PI * 0.3,
+        color: '#ff4444',
+        knockback: 1,
+        cleave: false,
+        chainsaw: true, // Continuous damage while held
+        bleed: true,
+        bleedDamage: 4,
+        bleedDuration: 2000,
+        desc: 'BRRRRRRR! Shreds through enemies'
     },
     rapier: {
         name: 'Rapier',
@@ -863,8 +879,9 @@ export function shootWeapon(weapon, player, targetX, targetY, createBullet, crea
                 nuclear: weaponData.nuclear || false,
                 explosionRadius: weaponData.explosionRadius || 0,
                 instantKillChance: weaponData.instantKillChance || 0,
+                chainsaw: weaponData.chainsaw || false,
                 spawnTime: Date.now(),
-                duration: 200
+                duration: weaponData.chainsaw ? 100 : 200 // Chainsaw has shorter swing animation
             });
             // Reset overpump stacks after attack
             if (weaponData.overpump) {
