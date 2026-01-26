@@ -1231,6 +1231,74 @@ export default function Game() {
             }, 1000);
         }
 
+        // Update and draw fire zones (napalm)
+        gs.fireZones = gs.fireZones || [];
+        for (let i = gs.fireZones.length - 1; i >= 0; i--) {
+            const zone = gs.fireZones[i];
+            const elapsed = now - zone.spawnTime;
+
+            // Remove expired zones
+            if (elapsed > zone.duration) {
+                gs.fireZones.splice(i, 1);
+                continue;
+            }
+
+            const fadeProgress = elapsed / zone.duration;
+            const currentRadius = zone.radius * (1 - fadeProgress * 0.3);
+
+            // Draw fire zone
+            ctx.globalAlpha = 0.4 * (1 - fadeProgress);
+            ctx.fillStyle = zone.color;
+            ctx.shadowColor = zone.color;
+            ctx.shadowBlur = 20;
+            ctx.beginPath();
+            ctx.arc(zone.x, zone.y, currentRadius, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Inner flames
+            ctx.fillStyle = '#ffff00';
+            ctx.globalAlpha = 0.3 * (1 - fadeProgress);
+            ctx.beginPath();
+            ctx.arc(zone.x, zone.y, currentRadius * 0.6, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.shadowBlur = 0;
+            ctx.globalAlpha = 1;
+
+            // Spawn fire particles
+            if (Math.random() < 0.3) {
+                gs.particles.push({
+                    x: zone.x + (Math.random() - 0.5) * currentRadius * 2,
+                    y: zone.y + (Math.random() - 0.5) * currentRadius * 2,
+                    vx: (Math.random() - 0.5) * 2,
+                    vy: -2 - Math.random() * 3,
+                    life: 1,
+                    decay: 0.04,
+                    size: 3 + Math.random() * 4,
+                    color: Math.random() > 0.5 ? '#ff4400' : '#ffaa00',
+                    type: 'default',
+                    gravity: -0.1,
+                    shrink: true
+                });
+            }
+
+            // Damage enemies in zone
+            enemies.forEach(e => {
+                const dist = Math.hypot(e.x - zone.x, e.y - zone.y);
+                if (dist < currentRadius) {
+                    // Tick damage every 500ms
+                    if (!e.lastFireDamage || now - e.lastFireDamage > 500) {
+                        e.lastFireDamage = now;
+                        e.health -= zone.damage;
+                        e.hitFlash = 3;
+                        e.burning = true;
+                        e.burnUntil = now + 1000;
+                        createDamageNumber(e.x, e.y - e.size, zone.damage, false);
+                    }
+                }
+            });
+        }
+
         // Update and draw bullets
         for (let i = bullets.length - 1; i >= 0; i--) {
             const b = bullets[i];
@@ -1352,8 +1420,183 @@ export default function Game() {
                 }
             }
 
-            // Check bounds (skip for mortar bullets)
-            if (!b.isMortar && (b.x < -50 || b.x > canvas.width + 50 || b.y < -50 || b.y > canvas.height + 50)) {
+            // Mine behavior - slow down and arm
+            if (b.mine) {
+                // Slow down over time
+                b.vx *= 0.95;
+                b.vy *= 0.95;
+
+                // Check for mine lifetime
+                const mineAge = now - b.spawnTime;
+                if (mineAge > (b.mineLifetime || 10000)) {
+                    bullets.splice(i, 1);
+                    continue;
+                }
+
+                // Check if armed (stopped moving)
+                const speed = Math.hypot(b.vx, b.vy);
+                if (speed < 1) {
+                    b.vx = 0;
+                    b.vy = 0;
+                    b.armed = true;
+
+                    // Check for enemies in trigger radius
+                    const triggerDist = b.triggerRadius || 50;
+                    let triggered = false;
+                    enemies.forEach(e => {
+                        if (!triggered) {
+                            const dist = Math.hypot(e.x - b.x, e.y - b.y);
+                            if (dist < triggerDist + e.size) {
+                                triggered = true;
+                            }
+                        }
+                    });
+
+                    if (triggered) {
+                        // EXPLODE!
+                        const radius = b.explosionRadius || 55;
+                        sfxRef.current?.explosion();
+                        triggerScreenShake(0.5);
+                        createParticles(b.x, b.y, '#ffff00', 25, 10);
+                        createRingExplosion(b.x, b.y, '#ffff00', radius);
+
+                        // Damage all enemies in radius
+                        enemies.forEach(e => {
+                            const dist = Math.hypot(e.x - b.x, e.y - b.y);
+                            if (dist < radius) {
+                                let mineDamage = b.damage * (1 - dist / radius);
+                                if (e.explosionResist) mineDamage *= 0.3;
+                                e.health -= mineDamage;
+                                e.hitFlash = 5;
+                                createDamageNumber(e.x, e.y - e.size, mineDamage, false);
+                            }
+                        });
+
+                        bullets.splice(i, 1);
+                        continue;
+                    }
+                }
+            }
+
+            // Sticky bomb behavior - stick to first enemy hit
+            if (b.sticky && !b.stuckTo) {
+                enemies.forEach((e, idx) => {
+                    if (!b.stuckTo) {
+                        const dist = Math.hypot(e.x - b.x, e.y - b.y);
+                        if (dist < e.size + b.size) {
+                            b.stuckTo = idx;
+                            b.stuckOffset = { x: b.x - e.x, y: b.y - e.y };
+                            sfxRef.current?.hit();
+                        }
+                    }
+                });
+            }
+
+            // Update sticky bomb position if stuck
+            if (b.sticky && b.stuckTo !== undefined) {
+                const target = enemies[b.stuckTo];
+                if (target) {
+                    b.x = target.x + b.stuckOffset.x;
+                    b.y = target.y + b.stuckOffset.y;
+                    b.vx = 0;
+                    b.vy = 0;
+                }
+
+                // Check fuse
+                if (now - b.spawnTime > (b.fuseTime || 1500)) {
+                    // EXPLODE!
+                    const radius = b.explosionRadius || 70;
+                    sfxRef.current?.explosionBig();
+                    triggerScreenShake(0.6);
+                    createParticles(b.x, b.y, '#88ff00', 30, 12);
+                    createRingExplosion(b.x, b.y, '#88ff00', radius);
+
+                    // Damage all enemies in radius
+                    enemies.forEach(e => {
+                        const dist = Math.hypot(e.x - b.x, e.y - b.y);
+                        if (dist < radius) {
+                            let stickyDamage = b.damage * (1 - dist / radius * 0.5);
+                            if (e.explosionResist) stickyDamage *= 0.3;
+                            e.health -= stickyDamage;
+                            e.hitFlash = 5;
+                            createDamageNumber(e.x, e.y - e.size, stickyDamage, false);
+                        }
+                    });
+
+                    bullets.splice(i, 1);
+                    continue;
+                }
+            }
+
+            // Impact grenade - explode on any hit
+            if (b.impact && !b.isEnemy) {
+                let hitSomething = false;
+                enemies.forEach(e => {
+                    if (!hitSomething) {
+                        const dist = Math.hypot(e.x - b.x, e.y - b.y);
+                        if (dist < e.size + b.size) {
+                            hitSomething = true;
+                        }
+                    }
+                });
+
+                if (hitSomething) {
+                    // Immediate explosion
+                    const radius = b.explosionRadius || 65;
+                    sfxRef.current?.explosion();
+                    triggerScreenShake(0.4);
+                    createParticles(b.x, b.y, bulletColor, 20, 10);
+                    createRingExplosion(b.x, b.y, bulletColor, radius);
+
+                    // Damage all enemies in radius
+                    enemies.forEach(e => {
+                        const dist = Math.hypot(e.x - b.x, e.y - b.y);
+                        if (dist < radius) {
+                            let impactDamage = b.damage * (1 - dist / radius * 0.3);
+                            if (e.explosionResist) impactDamage *= 0.3;
+                            e.health -= impactDamage;
+                            e.hitFlash = 5;
+                            createDamageNumber(e.x, e.y - e.size, impactDamage, false);
+                        }
+                    });
+
+                    bullets.splice(i, 1);
+                    continue;
+                }
+            }
+
+            // Bouncer bullet - bounce off walls
+            if (b.bouncer && b.maxBounces > 0) {
+                if (b.x < 5) {
+                    b.x = 5;
+                    b.vx *= -1;
+                    b.maxBounces--;
+                    createParticles(b.x, b.y, b.color || '#ffff00', 5, 4);
+                    sfxRef.current?.shieldHit();
+                } else if (b.x > canvas.width - 5) {
+                    b.x = canvas.width - 5;
+                    b.vx *= -1;
+                    b.maxBounces--;
+                    createParticles(b.x, b.y, b.color || '#ffff00', 5, 4);
+                    sfxRef.current?.shieldHit();
+                }
+                if (b.y < 5) {
+                    b.y = 5;
+                    b.vy *= -1;
+                    b.maxBounces--;
+                    createParticles(b.x, b.y, b.color || '#ffff00', 5, 4);
+                    sfxRef.current?.shieldHit();
+                } else if (b.y > canvas.height - 5) {
+                    b.y = canvas.height - 5;
+                    b.vy *= -1;
+                    b.maxBounces--;
+                    createParticles(b.x, b.y, b.color || '#ffff00', 5, 4);
+                    sfxRef.current?.shieldHit();
+                }
+            }
+
+            // Check bounds (skip for mortar bullets and bouncers with bounces left)
+            if (!b.isMortar && !(b.bouncer && b.maxBounces > 0) && (b.x < -50 || b.x > canvas.width + 50 || b.y < -50 || b.y > canvas.height + 50)) {
                 bullets.splice(i, 1);
                 continue;
             }
@@ -1445,29 +1688,115 @@ export default function Game() {
                     }
                     ctx.stroke();
                 }
-            } else if (b.beam) {
-                // Beam weapon - bright line
+            } else if (b.beam || b.orbitalLaser) {
+                // BEAM WEAPON - Continuous laser effect
                 ctx.save();
                 ctx.translate(b.x, b.y);
-                ctx.rotate(Math.atan2(b.vy, b.vx));
-                ctx.fillStyle = '#ffffff';
-                ctx.fillRect(-20, -2, 40, 4);
+                const beamAngle = Math.atan2(b.vy, b.vx);
+                ctx.rotate(beamAngle);
+
+                const beamLength = b.orbitalLaser ? 80 : 60;
+                const beamWidth = b.orbitalLaser ? 6 : 4;
+
+                // Outer glow
+                ctx.globalAlpha = 0.3;
                 ctx.fillStyle = bulletColor;
-                ctx.fillRect(-25, -4, 50, 8);
+                ctx.shadowColor = bulletColor;
+                ctx.shadowBlur = 30;
+                ctx.fillRect(-beamLength, -beamWidth * 2, beamLength * 2, beamWidth * 4);
+
+                // Middle layer
+                ctx.globalAlpha = 0.6;
+                ctx.fillRect(-beamLength, -beamWidth, beamLength * 2, beamWidth * 2);
+
+                // Core (white hot)
+                ctx.globalAlpha = 1;
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(-beamLength, -beamWidth * 0.5, beamLength * 2, beamWidth);
+
+                // Flickering particles along beam
+                ctx.fillStyle = bulletColor;
+                for (let j = 0; j < 5; j++) {
+                    const px = (Math.random() - 0.5) * beamLength * 2;
+                    const py = (Math.random() - 0.5) * beamWidth * 2;
+                    ctx.globalAlpha = 0.5 + Math.random() * 0.5;
+                    ctx.beginPath();
+                    ctx.arc(px, py, 2 + Math.random() * 3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                ctx.shadowBlur = 0;
                 ctx.restore();
+
+                // Spawn particles along the beam path
+                if (Math.random() < 0.3) {
+                    createParticles(b.x, b.y, bulletColor, 2, 3, 'spark');
+                }
             } else if (b.flame) {
-                // Flame with flickering effect
-                ctx.globalAlpha = 0.6 + Math.random() * 0.3;
-                const flameSize = b.size * (0.8 + Math.random() * 0.4);
+                // FLAMETHROWER - Expanding fire with multiple layers
+                const age = (b.lifetime !== undefined) ? (30 - b.lifetime) / 30 : 0;
+                const baseSize = b.size * (1 + age * 2); // Flames expand as they travel
+
+                // Smoke layer (behind)
+                ctx.globalAlpha = 0.2 * (1 - age);
+                ctx.fillStyle = '#333333';
                 ctx.beginPath();
-                ctx.arc(b.x, b.y, flameSize, 0, Math.PI * 2);
+                ctx.arc(b.x + (Math.random() - 0.5) * 5, b.y + (Math.random() - 0.5) * 5, baseSize * 1.5, 0, Math.PI * 2);
                 ctx.fill();
-                // Inner bright core
+
+                // Outer fire (red/orange)
+                ctx.globalAlpha = 0.6 * (1 - age * 0.5);
+                ctx.fillStyle = '#ff3300';
+                ctx.shadowColor = '#ff6600';
+                ctx.shadowBlur = 20;
+                for (let j = 0; j < 3; j++) {
+                    const offsetX = (Math.random() - 0.5) * baseSize;
+                    const offsetY = (Math.random() - 0.5) * baseSize;
+                    const flameSize = baseSize * (0.6 + Math.random() * 0.4);
+                    ctx.beginPath();
+                    ctx.arc(b.x + offsetX, b.y + offsetY, flameSize, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                // Middle fire (orange/yellow)
+                ctx.globalAlpha = 0.7 * (1 - age * 0.3);
+                ctx.fillStyle = '#ff8800';
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, baseSize * 0.7, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Core (yellow/white hot)
+                ctx.globalAlpha = 0.8 * (1 - age * 0.5);
                 ctx.fillStyle = '#ffff00';
-                ctx.globalAlpha = 0.4;
                 ctx.beginPath();
-                ctx.arc(b.x, b.y, flameSize * 0.5, 0, Math.PI * 2);
+                ctx.arc(b.x, b.y, baseSize * 0.4, 0, Math.PI * 2);
                 ctx.fill();
+
+                // White hot center
+                ctx.globalAlpha = 0.6 * (1 - age);
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, baseSize * 0.2, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.shadowBlur = 0;
+
+                // Spawn ember particles
+                if (Math.random() < 0.4) {
+                    gs.particles.push({
+                        x: b.x + (Math.random() - 0.5) * baseSize,
+                        y: b.y + (Math.random() - 0.5) * baseSize,
+                        vx: (Math.random() - 0.5) * 3,
+                        vy: -1 - Math.random() * 2,
+                        life: 1,
+                        decay: 0.03,
+                        size: 2 + Math.random() * 3,
+                        color: Math.random() > 0.5 ? '#ff6600' : '#ffaa00',
+                        type: 'spark',
+                        gravity: -0.1,
+                        shrink: true
+                    });
+                }
             } else if (b.homing) {
                 // Homing missile with fins
                 ctx.save();
@@ -1492,15 +1821,833 @@ export default function Game() {
                 ctx.globalAlpha = 0.7;
                 ctx.fillRect(-12, -2, 6, 4);
                 ctx.restore();
-            } else if (b.acid || b.cryo) {
-                // Acid/Cryo blob with dripping effect
+            } else if (b.acid) {
+                // ACID - Bubbling toxic blob
+                ctx.shadowColor = '#00ff00';
+                ctx.shadowBlur = 15;
+
+                // Main blob with wobble
+                const wobble = Math.sin(now * 0.02 + b.x) * 2;
+                ctx.globalAlpha = 0.8;
+                ctx.fillStyle = '#44ff44';
                 ctx.beginPath();
-                ctx.arc(b.x, b.y, b.size, 0, Math.PI * 2);
+                ctx.arc(b.x, b.y, b.size + wobble, 0, Math.PI * 2);
                 ctx.fill();
-                // Drip
+
+                // Darker core
+                ctx.fillStyle = '#00aa00';
                 ctx.beginPath();
-                ctx.arc(b.x + b.vx * 0.3, b.y + b.vy * 0.3 + b.size * 0.5, b.size * 0.4, 0, Math.PI * 2);
+                ctx.arc(b.x, b.y, b.size * 0.6, 0, Math.PI * 2);
                 ctx.fill();
+
+                // Bubbles
+                ctx.fillStyle = '#88ff88';
+                ctx.globalAlpha = 0.6;
+                for (let j = 0; j < 3; j++) {
+                    const bubbleAngle = (now * 0.01 + j * 2) % (Math.PI * 2);
+                    const bubbleDist = b.size * 0.5;
+                    ctx.beginPath();
+                    ctx.arc(
+                        b.x + Math.cos(bubbleAngle) * bubbleDist,
+                        b.y + Math.sin(bubbleAngle) * bubbleDist,
+                        2 + Math.random() * 2,
+                        0, Math.PI * 2
+                    );
+                    ctx.fill();
+                }
+
+                // Dripping trail
+                ctx.globalAlpha = 0.5;
+                ctx.fillStyle = '#44ff44';
+                ctx.beginPath();
+                ctx.arc(b.x - b.vx * 0.5, b.y - b.vy * 0.5 + 5, b.size * 0.3, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.shadowBlur = 0;
+
+                // Spawn acid drip particles
+                if (Math.random() < 0.2) {
+                    gs.particles.push({
+                        x: b.x,
+                        y: b.y,
+                        vx: (Math.random() - 0.5) * 2,
+                        vy: 1 + Math.random() * 2,
+                        life: 1,
+                        decay: 0.05,
+                        size: 3,
+                        color: '#44ff44',
+                        type: 'default',
+                        gravity: 0.2,
+                        shrink: true
+                    });
+                }
+            } else if (b.cryo) {
+                // CRYO - Icy crystal with frost
+                ctx.shadowColor = '#88ddff';
+                ctx.shadowBlur = 20;
+
+                // Outer frost aura
+                ctx.globalAlpha = 0.3;
+                ctx.fillStyle = '#aaeeff';
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, b.size * 1.5, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Crystal shape (hexagon-ish)
+                ctx.globalAlpha = 0.8;
+                ctx.fillStyle = '#66ccff';
+                ctx.beginPath();
+                for (let j = 0; j < 6; j++) {
+                    const angle = (j / 6) * Math.PI * 2 + now * 0.005;
+                    const dist = b.size * (j % 2 === 0 ? 1 : 0.7);
+                    if (j === 0) {
+                        ctx.moveTo(b.x + Math.cos(angle) * dist, b.y + Math.sin(angle) * dist);
+                    } else {
+                        ctx.lineTo(b.x + Math.cos(angle) * dist, b.y + Math.sin(angle) * dist);
+                    }
+                }
+                ctx.closePath();
+                ctx.fill();
+
+                // Inner glow
+                ctx.globalAlpha = 0.9;
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, b.size * 0.3, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Ice sparkles
+                ctx.fillStyle = '#ffffff';
+                ctx.globalAlpha = 0.8;
+                for (let j = 0; j < 4; j++) {
+                    const sparkAngle = Math.random() * Math.PI * 2;
+                    const sparkDist = b.size * (0.5 + Math.random() * 0.8);
+                    ctx.beginPath();
+                    ctx.arc(
+                        b.x + Math.cos(sparkAngle) * sparkDist,
+                        b.y + Math.sin(sparkAngle) * sparkDist,
+                        1,
+                        0, Math.PI * 2
+                    );
+                    ctx.fill();
+                }
+
+                ctx.shadowBlur = 0;
+
+                // Spawn frost particles
+                if (Math.random() < 0.15) {
+                    gs.particles.push({
+                        x: b.x + (Math.random() - 0.5) * b.size * 2,
+                        y: b.y + (Math.random() - 0.5) * b.size * 2,
+                        vx: (Math.random() - 0.5) * 1,
+                        vy: -0.5 - Math.random(),
+                        life: 1,
+                        decay: 0.02,
+                        size: 2,
+                        color: '#aaeeff',
+                        type: 'spark',
+                        gravity: -0.05,
+                        shrink: true
+                    });
+                }
+            } else if (b.plasma || b.pulse) {
+                // PLASMA - Pulsing energy orb
+                const pulsePhase = Math.sin(now * 0.015) * 0.3;
+                const plasmaSize = b.size * (1 + pulsePhase);
+
+                ctx.shadowColor = bulletColor;
+                ctx.shadowBlur = 25;
+
+                // Outer energy ring
+                ctx.globalAlpha = 0.4;
+                ctx.strokeStyle = bulletColor;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, plasmaSize * 1.5, 0, Math.PI * 2);
+                ctx.stroke();
+
+                // Middle glow
+                ctx.globalAlpha = 0.6;
+                ctx.fillStyle = bulletColor;
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, plasmaSize, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Core
+                ctx.globalAlpha = 1;
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, plasmaSize * 0.4, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Energy tendrils
+                ctx.strokeStyle = bulletColor;
+                ctx.lineWidth = 1;
+                ctx.globalAlpha = 0.6;
+                for (let j = 0; j < 4; j++) {
+                    const tendrilAngle = (j / 4) * Math.PI * 2 + now * 0.01;
+                    ctx.beginPath();
+                    ctx.moveTo(b.x, b.y);
+                    ctx.lineTo(
+                        b.x + Math.cos(tendrilAngle) * plasmaSize * 2,
+                        b.y + Math.sin(tendrilAngle) * plasmaSize * 2
+                    );
+                    ctx.stroke();
+                }
+
+                ctx.shadowBlur = 0;
+            } else if (b.saw) {
+                // SAW BLADE - Spinning blade with teeth
+                ctx.save();
+                ctx.translate(b.x, b.y);
+                const sawRotation = now * 0.03; // Fast spin
+                ctx.rotate(sawRotation);
+
+                const sawRadius = b.size * 1.5;
+                const teeth = 8;
+
+                ctx.shadowColor = bulletColor;
+                ctx.shadowBlur = 15;
+
+                // Outer saw teeth
+                ctx.fillStyle = bulletColor;
+                ctx.beginPath();
+                for (let j = 0; j < teeth; j++) {
+                    const angle = (j / teeth) * Math.PI * 2;
+                    const nextAngle = ((j + 0.5) / teeth) * Math.PI * 2;
+                    const outerDist = sawRadius;
+                    const innerDist = sawRadius * 0.7;
+                    if (j === 0) {
+                        ctx.moveTo(Math.cos(angle) * outerDist, Math.sin(angle) * outerDist);
+                    }
+                    ctx.lineTo(Math.cos(nextAngle) * innerDist, Math.sin(nextAngle) * innerDist);
+                    ctx.lineTo(Math.cos(((j + 1) / teeth) * Math.PI * 2) * outerDist, Math.sin(((j + 1) / teeth) * Math.PI * 2) * outerDist);
+                }
+                ctx.closePath();
+                ctx.fill();
+
+                // Center hole
+                ctx.fillStyle = '#333333';
+                ctx.beginPath();
+                ctx.arc(0, 0, sawRadius * 0.2, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Highlight
+                ctx.fillStyle = '#ffffff';
+                ctx.globalAlpha = 0.4;
+                ctx.beginPath();
+                ctx.arc(sawRadius * 0.3, -sawRadius * 0.3, sawRadius * 0.15, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.shadowBlur = 0;
+                ctx.restore();
+
+                // Sparks trail
+                if (Math.random() < 0.3) {
+                    gs.particles.push({
+                        x: b.x,
+                        y: b.y,
+                        vx: (Math.random() - 0.5) * 4,
+                        vy: (Math.random() - 0.5) * 4,
+                        life: 1,
+                        decay: 0.08,
+                        size: 2,
+                        color: '#ffff88',
+                        type: 'spark',
+                        gravity: 0.1,
+                        shrink: true
+                    });
+                }
+            } else if (b.bouncer) {
+                // BOUNCER - Rubber ball with squish effect
+                const bouncePhase = Math.sin(now * 0.02 + b.x * 0.1) * 0.15;
+                const squishX = 1 + bouncePhase;
+                const squishY = 1 - bouncePhase;
+
+                ctx.save();
+                ctx.translate(b.x, b.y);
+                ctx.scale(squishX, squishY);
+
+                ctx.shadowColor = bulletColor;
+                ctx.shadowBlur = 15;
+
+                // Main ball
+                ctx.fillStyle = bulletColor;
+                ctx.beginPath();
+                ctx.arc(0, 0, b.size, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Highlight
+                ctx.fillStyle = '#ffffff';
+                ctx.globalAlpha = 0.7;
+                ctx.beginPath();
+                ctx.arc(-b.size * 0.3, -b.size * 0.3, b.size * 0.35, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Inner ring
+                ctx.globalAlpha = 0.5;
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.arc(0, 0, b.size * 0.6, 0, Math.PI * 2);
+                ctx.stroke();
+
+                ctx.shadowBlur = 0;
+                ctx.restore();
+            } else if (b.cluster) {
+                // CLUSTER BOMB - Multi-segment bomb
+                ctx.save();
+                ctx.translate(b.x, b.y);
+                const clusterAngle = Math.atan2(b.vy, b.vx);
+                ctx.rotate(clusterAngle);
+
+                ctx.shadowColor = bulletColor;
+                ctx.shadowBlur = 15;
+
+                // Main body
+                ctx.fillStyle = bulletColor;
+                ctx.fillRect(-8, -5, 16, 10);
+
+                // Cluster segments (bumps)
+                ctx.fillStyle = '#ff8800';
+                for (let j = 0; j < 3; j++) {
+                    ctx.beginPath();
+                    ctx.arc(-4 + j * 4, -6, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.arc(-4 + j * 4, 6, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                // Warning stripes
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(-2, -5, 2, 10);
+                ctx.fillRect(4, -5, 2, 10);
+
+                ctx.shadowBlur = 0;
+                ctx.restore();
+            } else if (b.sticky) {
+                // STICKY BOMB - Gooey blob
+                const wobble = Math.sin(now * 0.015) * 2;
+                ctx.shadowColor = bulletColor;
+                ctx.shadowBlur = 15;
+
+                // Goo drips
+                ctx.fillStyle = '#66cc00';
+                ctx.globalAlpha = 0.6;
+                for (let j = 0; j < 3; j++) {
+                    const dripAngle = (j / 3) * Math.PI * 2 + now * 0.005;
+                    ctx.beginPath();
+                    ctx.arc(
+                        b.x + Math.cos(dripAngle) * (b.size + 3),
+                        b.y + Math.sin(dripAngle) * (b.size + 5 + Math.sin(now * 0.02 + j) * 3),
+                        3, 0, Math.PI * 2
+                    );
+                    ctx.fill();
+                }
+
+                // Main blob
+                ctx.globalAlpha = 1;
+                ctx.fillStyle = bulletColor;
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, b.size + wobble, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Highlight
+                ctx.fillStyle = '#ccff88';
+                ctx.globalAlpha = 0.5;
+                ctx.beginPath();
+                ctx.arc(b.x - 3, b.y - 3, b.size * 0.4, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.shadowBlur = 0;
+            } else if (b.napalm) {
+                // NAPALM - Flaming canister
+                ctx.save();
+                ctx.translate(b.x, b.y);
+                const napalmAngle = Math.atan2(b.vy, b.vx);
+                ctx.rotate(napalmAngle);
+
+                // Fire trail
+                ctx.fillStyle = '#ff4400';
+                ctx.globalAlpha = 0.6;
+                for (let j = 0; j < 4; j++) {
+                    ctx.beginPath();
+                    ctx.arc(-8 - j * 6, (Math.random() - 0.5) * 8, 4 + Math.random() * 3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                ctx.globalAlpha = 1;
+                ctx.shadowColor = '#ff6600';
+                ctx.shadowBlur = 20;
+
+                // Canister body
+                ctx.fillStyle = bulletColor;
+                ctx.fillRect(-10, -4, 20, 8);
+
+                // Cap
+                ctx.fillStyle = '#aa2200';
+                ctx.fillRect(8, -5, 4, 10);
+
+                // Flame icon
+                ctx.fillStyle = '#ffff00';
+                ctx.beginPath();
+                ctx.arc(-2, 0, 3, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.shadowBlur = 0;
+                ctx.restore();
+            } else if (b.mine) {
+                // MINE - Spiked orb (stationary when stopped)
+                const isMoving = Math.hypot(b.vx, b.vy) > 1;
+                const pulseSize = isMoving ? 0 : Math.sin(now * 0.01) * 3;
+
+                ctx.shadowColor = bulletColor;
+                ctx.shadowBlur = isMoving ? 10 : 20;
+
+                // Danger ring when armed
+                if (!isMoving) {
+                    ctx.globalAlpha = 0.3 + Math.sin(now * 0.015) * 0.2;
+                    ctx.strokeStyle = '#ff0000';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(b.x, b.y, b.triggerRadius || 50, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+
+                // Main body
+                ctx.globalAlpha = 1;
+                ctx.fillStyle = bulletColor;
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, b.size + pulseSize, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Spikes
+                ctx.fillStyle = '#cccccc';
+                const spikes = 8;
+                for (let j = 0; j < spikes; j++) {
+                    const spikeAngle = (j / spikes) * Math.PI * 2 + (isMoving ? now * 0.01 : 0);
+                    const spikeLen = b.size + pulseSize + 6;
+                    ctx.beginPath();
+                    ctx.moveTo(
+                        b.x + Math.cos(spikeAngle) * (b.size + pulseSize),
+                        b.y + Math.sin(spikeAngle) * (b.size + pulseSize)
+                    );
+                    ctx.lineTo(
+                        b.x + Math.cos(spikeAngle) * spikeLen,
+                        b.y + Math.sin(spikeAngle) * spikeLen
+                    );
+                    ctx.lineTo(
+                        b.x + Math.cos(spikeAngle + 0.2) * (b.size + pulseSize),
+                        b.y + Math.sin(spikeAngle + 0.2) * (b.size + pulseSize)
+                    );
+                    ctx.fill();
+                }
+
+                // Blinking light
+                if (!isMoving && Math.sin(now * 0.02) > 0) {
+                    ctx.fillStyle = '#ff0000';
+                    ctx.beginPath();
+                    ctx.arc(b.x, b.y, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                ctx.shadowBlur = 0;
+            } else if (b.nuke) {
+                // NUKE - Big warhead
+                ctx.save();
+                ctx.translate(b.x, b.y);
+                const nukeAngle = Math.atan2(b.vy, b.vx);
+                ctx.rotate(nukeAngle);
+
+                ctx.shadowColor = '#00ff00';
+                ctx.shadowBlur = 25;
+
+                // Radiation glow
+                ctx.fillStyle = '#00ff00';
+                ctx.globalAlpha = 0.3 + Math.sin(now * 0.02) * 0.1;
+                ctx.beginPath();
+                ctx.arc(0, 0, 25, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.globalAlpha = 1;
+
+                // Main warhead body
+                ctx.fillStyle = '#333333';
+                ctx.fillRect(-15, -8, 25, 16);
+
+                // Nose cone
+                ctx.fillStyle = bulletColor;
+                ctx.beginPath();
+                ctx.moveTo(10, -8);
+                ctx.lineTo(20, 0);
+                ctx.lineTo(10, 8);
+                ctx.closePath();
+                ctx.fill();
+
+                // Fins
+                ctx.fillStyle = '#222222';
+                ctx.fillRect(-15, -12, 8, 4);
+                ctx.fillRect(-15, 8, 8, 4);
+
+                // Radiation symbol
+                ctx.fillStyle = '#ffff00';
+                ctx.beginPath();
+                ctx.arc(-2, 0, 4, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#000000';
+                ctx.beginPath();
+                ctx.arc(-2, 0, 2, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.shadowBlur = 0;
+                ctx.restore();
+            } else if (b.firework) {
+                // FIREWORK - Colorful rocket
+                ctx.save();
+                ctx.translate(b.x, b.y);
+                const fwAngle = Math.atan2(b.vy, b.vx);
+                ctx.rotate(fwAngle);
+
+                // Sparkle trail
+                const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
+                for (let j = 0; j < 5; j++) {
+                    ctx.fillStyle = colors[Math.floor(Math.random() * colors.length)];
+                    ctx.globalAlpha = 0.7 - j * 0.1;
+                    ctx.beginPath();
+                    ctx.arc(-8 - j * 5 + Math.random() * 4, (Math.random() - 0.5) * 6, 2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                ctx.globalAlpha = 1;
+                ctx.shadowColor = bulletColor;
+                ctx.shadowBlur = 15;
+
+                // Body with stripes
+                for (let j = 0; j < 3; j++) {
+                    ctx.fillStyle = colors[(j + Math.floor(now * 0.01)) % colors.length];
+                    ctx.fillRect(-6 + j * 4, -3, 4, 6);
+                }
+
+                // Tip
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.moveTo(6, -3);
+                ctx.lineTo(10, 0);
+                ctx.lineTo(6, 3);
+                ctx.closePath();
+                ctx.fill();
+
+                ctx.shadowBlur = 0;
+                ctx.restore();
+            } else if (b.barrel) {
+                // BARREL - Explosive barrel
+                ctx.save();
+                ctx.translate(b.x, b.y);
+                const barrelRot = now * 0.02;
+                ctx.rotate(barrelRot);
+
+                ctx.shadowColor = '#ff6600';
+                ctx.shadowBlur = 15;
+
+                // Main barrel
+                ctx.fillStyle = bulletColor;
+                ctx.fillRect(-10, -12, 20, 24);
+
+                // Metal bands
+                ctx.fillStyle = '#444444';
+                ctx.fillRect(-11, -10, 22, 3);
+                ctx.fillRect(-11, 7, 22, 3);
+
+                // Warning symbol
+                ctx.fillStyle = '#ff0000';
+                ctx.beginPath();
+                ctx.moveTo(0, -5);
+                ctx.lineTo(-4, 3);
+                ctx.lineTo(4, 3);
+                ctx.closePath();
+                ctx.fill();
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(-1, -3, 2, 4);
+                ctx.fillRect(-1, 2, 2, 2);
+
+                ctx.shadowBlur = 0;
+                ctx.restore();
+            } else if (b.drone && b.explosive) {
+                // BOMB DRONE - Flying bomb
+                ctx.save();
+                ctx.translate(b.x, b.y);
+                const droneAngle = Math.atan2(b.vy, b.vx);
+                ctx.rotate(droneAngle);
+
+                ctx.shadowColor = bulletColor;
+                ctx.shadowBlur = 12;
+
+                // Rotor blur
+                ctx.fillStyle = '#888888';
+                ctx.globalAlpha = 0.4;
+                ctx.beginPath();
+                ctx.ellipse(-6, -8, 8, 3, Math.sin(now * 0.1), 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.ellipse(-6, 8, 8, 3, Math.cos(now * 0.1), 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.globalAlpha = 1;
+
+                // Body
+                ctx.fillStyle = bulletColor;
+                ctx.fillRect(-10, -5, 15, 10);
+
+                // Bomb attachment
+                ctx.fillStyle = '#ff4444';
+                ctx.beginPath();
+                ctx.arc(8, 0, 6, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Eye/sensor
+                ctx.fillStyle = '#ff0000';
+                ctx.beginPath();
+                ctx.arc(-4, 0, 2, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.shadowBlur = 0;
+                ctx.restore();
+            } else if (b.impact) {
+                // IMPACT GRENADE - Sleek projectile
+                ctx.save();
+                ctx.translate(b.x, b.y);
+                const impactAngle = Math.atan2(b.vy, b.vx);
+                ctx.rotate(impactAngle);
+
+                ctx.shadowColor = bulletColor;
+                ctx.shadowBlur = 15;
+
+                // Trail
+                ctx.fillStyle = bulletColor;
+                ctx.globalAlpha = 0.4;
+                ctx.fillRect(-20, -2, 15, 4);
+
+                ctx.globalAlpha = 1;
+
+                // Body
+                ctx.fillStyle = bulletColor;
+                ctx.fillRect(-8, -4, 14, 8);
+
+                // Tip (impact fuse)
+                ctx.fillStyle = '#ff4444';
+                ctx.beginPath();
+                ctx.moveTo(6, -4);
+                ctx.lineTo(12, 0);
+                ctx.lineTo(6, 4);
+                ctx.closePath();
+                ctx.fill();
+
+                // Bands
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(-4, -4, 2, 8);
+                ctx.fillRect(2, -4, 2, 8);
+
+                ctx.shadowBlur = 0;
+                ctx.restore();
+            } else if (b.dynamite) {
+                // Already handled by grenade rendering, but add fuse spark
+                // This will be drawn after the grenade render
+            } else if (b.explosive && !b.homing && !b.grenade) {
+                // ROCKET - Missile with exhaust
+                ctx.save();
+                ctx.translate(b.x, b.y);
+                const rocketAngle = Math.atan2(b.vy, b.vx);
+                ctx.rotate(rocketAngle);
+
+                ctx.shadowColor = bulletColor;
+                ctx.shadowBlur = 15;
+
+                // Exhaust flame
+                ctx.fillStyle = '#ff6600';
+                ctx.globalAlpha = 0.8;
+                ctx.beginPath();
+                ctx.moveTo(-12, 0);
+                ctx.lineTo(-20 - Math.random() * 8, -4);
+                ctx.lineTo(-18 - Math.random() * 6, 0);
+                ctx.lineTo(-20 - Math.random() * 8, 4);
+                ctx.closePath();
+                ctx.fill();
+
+                // Inner exhaust
+                ctx.fillStyle = '#ffff00';
+                ctx.globalAlpha = 0.9;
+                ctx.beginPath();
+                ctx.moveTo(-12, 0);
+                ctx.lineTo(-16 - Math.random() * 4, -2);
+                ctx.lineTo(-14 - Math.random() * 3, 0);
+                ctx.lineTo(-16 - Math.random() * 4, 2);
+                ctx.closePath();
+                ctx.fill();
+
+                // Rocket body
+                ctx.fillStyle = bulletColor;
+                ctx.globalAlpha = 1;
+                ctx.fillRect(-10, -4, 16, 8);
+
+                // Nose cone
+                ctx.beginPath();
+                ctx.moveTo(6, -4);
+                ctx.lineTo(12, 0);
+                ctx.lineTo(6, 4);
+                ctx.closePath();
+                ctx.fill();
+
+                // Fins
+                ctx.fillStyle = '#ff8888';
+                ctx.beginPath();
+                ctx.moveTo(-10, -4);
+                ctx.lineTo(-14, -8);
+                ctx.lineTo(-6, -4);
+                ctx.closePath();
+                ctx.fill();
+                ctx.beginPath();
+                ctx.moveTo(-10, 4);
+                ctx.lineTo(-14, 8);
+                ctx.lineTo(-6, 4);
+                ctx.closePath();
+                ctx.fill();
+
+                ctx.shadowBlur = 0;
+                ctx.restore();
+
+                // Smoke trail
+                if (Math.random() < 0.4) {
+                    gs.particles.push({
+                        x: b.x - Math.cos(rocketAngle) * 15,
+                        y: b.y - Math.sin(rocketAngle) * 15,
+                        vx: (Math.random() - 0.5) * 2,
+                        vy: (Math.random() - 0.5) * 2,
+                        life: 1,
+                        decay: 0.03,
+                        size: 4 + Math.random() * 4,
+                        color: '#888888',
+                        type: 'smoke',
+                        gravity: -0.05,
+                        shrink: false
+                    });
+                }
+            } else if (b.harpoon) {
+                // HARPOON - Arrow/spear shape
+                ctx.save();
+                ctx.translate(b.x, b.y);
+                const harpoonAngle = Math.atan2(b.vy, b.vx);
+                ctx.rotate(harpoonAngle);
+
+                ctx.shadowColor = bulletColor;
+                ctx.shadowBlur = 12;
+
+                // Shaft
+                ctx.fillStyle = '#8888aa';
+                ctx.fillRect(-15, -2, 20, 4);
+
+                // Head
+                ctx.fillStyle = bulletColor;
+                ctx.beginPath();
+                ctx.moveTo(5, -4);
+                ctx.lineTo(15, 0);
+                ctx.lineTo(5, 4);
+                ctx.closePath();
+                ctx.fill();
+
+                // Barbs
+                ctx.beginPath();
+                ctx.moveTo(5, -4);
+                ctx.lineTo(2, -6);
+                ctx.lineTo(3, -4);
+                ctx.closePath();
+                ctx.fill();
+                ctx.beginPath();
+                ctx.moveTo(5, 4);
+                ctx.lineTo(2, 6);
+                ctx.lineTo(3, 4);
+                ctx.closePath();
+                ctx.fill();
+
+                // Rope trail
+                ctx.strokeStyle = '#886644';
+                ctx.lineWidth = 1;
+                ctx.globalAlpha = 0.6;
+                ctx.beginPath();
+                ctx.moveTo(-15, 0);
+                for (let j = 0; j < 5; j++) {
+                    ctx.lineTo(-15 - j * 8, Math.sin(j * 1.5 + now * 0.01) * 3);
+                }
+                ctx.stroke();
+
+                ctx.shadowBlur = 0;
+                ctx.restore();
+            } else if (b.cannonball) {
+                // CANNONBALL - Heavy metal ball
+                ctx.shadowColor = bulletColor;
+                ctx.shadowBlur = 10;
+
+                // Main ball
+                ctx.fillStyle = '#555555';
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, b.size * 1.3, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Metallic highlight
+                ctx.fillStyle = '#888888';
+                ctx.globalAlpha = 0.6;
+                ctx.beginPath();
+                ctx.arc(b.x - b.size * 0.3, b.y - b.size * 0.4, b.size * 0.5, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Dark shadow
+                ctx.fillStyle = '#222222';
+                ctx.globalAlpha = 0.5;
+                ctx.beginPath();
+                ctx.arc(b.x + b.size * 0.2, b.y + b.size * 0.3, b.size * 0.6, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.shadowBlur = 0;
+            } else if (b.crossbow) {
+                // CROSSBOW BOLT - Arrow shape
+                ctx.save();
+                ctx.translate(b.x, b.y);
+                const boltAngle = Math.atan2(b.vy, b.vx);
+                ctx.rotate(boltAngle);
+
+                ctx.shadowColor = bulletColor;
+                ctx.shadowBlur = 8;
+
+                // Wooden shaft
+                ctx.fillStyle = '#8b4513';
+                ctx.fillRect(-12, -1.5, 18, 3);
+
+                // Metal tip
+                ctx.fillStyle = bulletColor;
+                ctx.beginPath();
+                ctx.moveTo(6, -3);
+                ctx.lineTo(14, 0);
+                ctx.lineTo(6, 3);
+                ctx.closePath();
+                ctx.fill();
+
+                // Fletching (feathers)
+                ctx.fillStyle = '#aa8866';
+                ctx.beginPath();
+                ctx.moveTo(-12, -1.5);
+                ctx.lineTo(-16, -5);
+                ctx.lineTo(-10, -1.5);
+                ctx.closePath();
+                ctx.fill();
+                ctx.beginPath();
+                ctx.moveTo(-12, 1.5);
+                ctx.lineTo(-16, 5);
+                ctx.lineTo(-10, 1.5);
+                ctx.closePath();
+                ctx.fill();
+
+                ctx.shadowBlur = 0;
+                ctx.restore();
             } else {
                 // Default bullet with core highlight
                 ctx.beginPath();
@@ -1850,8 +2997,86 @@ export default function Game() {
                         // Explosive rounds or explosive weapons
                         if (player.explosiveRounds || b.explosive) {
                             const radius = b.explosionRadius || 60;
-                            createParticles(b.x, b.y, '#ff8800', 15, 8);
-                            triggerScreenShake(b.explosionRadius ? 0.4 : 0.2);
+
+                            // Special explosion effects based on weapon type
+                            if (b.nuke) {
+                                // NUKE - Massive explosion with mushroom cloud effect
+                                sfxRef.current?.explosionMega();
+                                triggerScreenShake(1.5);
+                                createRingExplosion(b.x, b.y, '#00ff00', radius);
+                                createRingExplosion(b.x, b.y, '#ffff00', radius * 0.7);
+                                createParticles(b.x, b.y, '#00ff00', 50, 15);
+                                createParticles(b.x, b.y, '#ffff00', 40, 12);
+                                createParticles(b.x, b.y, '#ffffff', 30, 10);
+                                // Screen flash
+                                createScreenFlash('#ffffff', 0.8);
+                            } else if (b.cluster) {
+                                // CLUSTER - Spawn sub-bombs
+                                sfxRef.current?.explosion();
+                                triggerScreenShake(0.4);
+                                createParticles(b.x, b.y, '#ff8800', 20, 10);
+                                const clusterCount = b.clusterCount || 6;
+                                for (let c = 0; c < clusterCount; c++) {
+                                    const clusterAngle = (c / clusterCount) * Math.PI * 2 + Math.random() * 0.3;
+                                    const clusterSpeed = 6 + Math.random() * 4;
+                                    gs.bullets.push({
+                                        x: b.x,
+                                        y: b.y,
+                                        vx: Math.cos(clusterAngle) * clusterSpeed,
+                                        vy: Math.sin(clusterAngle) * clusterSpeed,
+                                        damage: b.clusterDamage || b.damage * 0.5,
+                                        piercing: 0,
+                                        color: '#ff8800',
+                                        size: 5,
+                                        explosive: true,
+                                        explosionRadius: b.clusterRadius || 40,
+                                        isClusterChild: true,
+                                        spawnTime: now
+                                    });
+                                }
+                            } else if (b.napalm) {
+                                // NAPALM - Create fire zone
+                                sfxRef.current?.explosionBig();
+                                triggerScreenShake(0.5);
+                                createParticles(b.x, b.y, '#ff4400', 30, 12);
+                                // Create fire zone (hazard area)
+                                gs.fireZones = gs.fireZones || [];
+                                gs.fireZones.push({
+                                    x: b.x,
+                                    y: b.y,
+                                    radius: radius,
+                                    damage: b.burnDamage || 3,
+                                    duration: b.burnDuration || 4000,
+                                    spawnTime: now,
+                                    color: '#ff4400'
+                                });
+                            } else if (b.firework) {
+                                // FIREWORK - Colorful multi-explosion
+                                sfxRef.current?.explosion();
+                                triggerScreenShake(0.3);
+                                const fwColors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff', '#ffffff'];
+                                for (let fw = 0; fw < (b.sparkCount || 8); fw++) {
+                                    const fwColor = fwColors[Math.floor(Math.random() * fwColors.length)];
+                                    const fwAngle = (fw / 8) * Math.PI * 2;
+                                    const fwDist = 20 + Math.random() * 30;
+                                    createParticles(
+                                        b.x + Math.cos(fwAngle) * fwDist,
+                                        b.y + Math.sin(fwAngle) * fwDist,
+                                        fwColor, 8, 6
+                                    );
+                                }
+                                createRingExplosion(b.x, b.y, fwColors[Math.floor(Math.random() * fwColors.length)], radius * 0.8);
+                            } else {
+                                // Standard explosion
+                                createParticles(b.x, b.y, '#ff8800', 15, 8);
+                                triggerScreenShake(b.explosionRadius ? 0.4 : 0.2);
+                                if (b.explosionRadius > 80) {
+                                    sfxRef.current?.explosionBig();
+                                } else {
+                                    sfxRef.current?.explosion();
+                                }
+                            }
+
                             // Damage nearby enemies (ironclad resists explosions)
                             enemies.forEach(other => {
                                 if (other !== e) {
@@ -1862,6 +3087,13 @@ export default function Game() {
                                         other.health -= explosionDamage;
                                         other.hitFlash = 5;
                                         createDamageNumber(other.x, other.y - other.size, explosionDamage, false);
+
+                                        // Napalm applies burn DOT
+                                        if (b.napalm) {
+                                            other.burning = true;
+                                            other.burnDamage = b.burnDamage || 3;
+                                            other.burnUntil = now + (b.burnDuration || 4000);
+                                        }
                                     }
                                 }
                             });
@@ -2009,33 +3241,44 @@ export default function Game() {
             ctx.save();
             ctx.translate(attack.x, attack.y);
 
-            // Draw swing trail (fading arc)
-            const trailSegments = 12;
-            for (let t = 0; t < trailSegments; t++) {
-                const trailProgress = Math.max(0, swingProgress - (t / trailSegments) * 0.5);
-                const trailAngle = attack.angle - attack.swingArc / 2 + attack.swingArc * trailProgress;
-                const alpha = (1 - t / trailSegments) * (1 - attack.progress) * 0.8;
+            // Draw filled swing arc (like a pie slice)
+            const startAngle = attack.angle - attack.swingArc / 2;
+            const endAngle = startAngle + attack.swingArc * swingProgress;
 
-                ctx.globalAlpha = alpha;
-                ctx.strokeStyle = attack.color;
-                ctx.lineWidth = 8 - t * 0.5;
-                ctx.shadowColor = attack.color;
-                ctx.shadowBlur = 15;
-                ctx.beginPath();
-                ctx.moveTo(0, 0);
-                ctx.lineTo(
-                    Math.cos(trailAngle - Math.PI / 2 + attack.angle) * attack.range,
-                    Math.sin(trailAngle - Math.PI / 2 + attack.angle) * attack.range
-                );
-                ctx.stroke();
-            }
+            // Outer glow arc
+            ctx.globalAlpha = 0.3 * (1 - attack.progress);
+            ctx.fillStyle = attack.color;
+            ctx.shadowColor = attack.color;
+            ctx.shadowBlur = 20;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.arc(0, 0, attack.range * 1.1, startAngle, endAngle);
+            ctx.closePath();
+            ctx.fill();
 
-            // Draw main swing blade
+            // Main swing arc
+            ctx.globalAlpha = 0.5 * (1 - attack.progress * 0.5);
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.arc(0, 0, attack.range, startAngle, endAngle);
+            ctx.closePath();
+            ctx.fill();
+
+            // Inner bright arc
+            ctx.globalAlpha = 0.7 * (1 - attack.progress * 0.3);
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.arc(0, 0, attack.range * 0.6, startAngle, endAngle);
+            ctx.closePath();
+            ctx.fill();
+
+            // Draw main swing blade (leading edge)
             ctx.globalAlpha = 1 - attack.progress * 0.5;
             ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = 4;
+            ctx.lineWidth = 6;
             ctx.shadowColor = attack.color;
-            ctx.shadowBlur = 25;
+            ctx.shadowBlur = 30;
             ctx.beginPath();
             ctx.moveTo(0, 0);
             ctx.lineTo(
@@ -2044,13 +3287,25 @@ export default function Game() {
             );
             ctx.stroke();
 
-            // Draw arc edge glow
+            // Draw blade tip glow
             ctx.fillStyle = attack.color;
             ctx.beginPath();
             ctx.arc(
                 Math.cos(currentAngle) * attack.range,
                 Math.sin(currentAngle) * attack.range,
-                8 * (1 - attack.progress),
+                10 * (1 - attack.progress),
+                0, Math.PI * 2
+            );
+            ctx.fill();
+
+            // White hot tip
+            ctx.fillStyle = '#ffffff';
+            ctx.globalAlpha = 0.8 * (1 - attack.progress);
+            ctx.beginPath();
+            ctx.arc(
+                Math.cos(currentAngle) * attack.range,
+                Math.sin(currentAngle) * attack.range,
+                5 * (1 - attack.progress),
                 0, Math.PI * 2
             );
             ctx.fill();

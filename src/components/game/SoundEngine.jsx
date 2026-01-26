@@ -188,6 +188,48 @@ export function createSFX() {
             playTone(400, 0.1, 'triangle', 0.08);
         },
 
+        // Explosive weapon sounds
+        shootCluster: () => {
+            playTone(300, 0.1, 'square', 0.1);
+            playTone(200, 0.12, 'sawtooth', 0.08);
+            playNoise(0.06, 0.06, 800);
+        },
+
+        shootSticky: () => {
+            playSweep(400, 200, 0.1, 'sine', 0.1);
+            playNoise(0.05, 0.06, 600);
+        },
+
+        shootNapalm: () => {
+            playNoise(0.12, 0.12, 1200);
+            playTone(150, 0.15, 'sawtooth', 0.1);
+        },
+
+        shootMine: () => {
+            playTone(500, 0.08, 'square', 0.08);
+            playTone(300, 0.1, 'triangle', 0.06);
+        },
+
+        shootNuke: () => {
+            playSweep(100, 400, 0.2, 'sawtooth', 0.12);
+            playNoise(0.15, 0.1, 800);
+            playTone(80, 0.25, 'sine', 0.1);
+        },
+
+        shootFirework: () => {
+            playSweep(800, 1500, 0.1, 'sine', 0.08);
+            playTone(600, 0.08, 'triangle', 0.06);
+        },
+
+        mineArm: () => {
+            playTone(800, 0.05, 'sine', 0.06);
+            playTone(1000, 0.05, 'sine', 0.05);
+        },
+
+        mineBeep: () => {
+            playTone(1200, 0.03, 'square', 0.04);
+        },
+
         // === IMPACT SOUNDS ===
         hit: () => {
             playTone(200, 0.1, 'square', 0.15);
