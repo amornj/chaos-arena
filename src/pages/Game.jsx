@@ -539,6 +539,20 @@ export default function Game() {
         }
     }, []);
 
+    const createDamageNumber = useCallback((x, y, damage, isCrit = false) => {
+        const gs = gameStateRef.current;
+        if (!gs) return;
+
+        gs.damageNumbers.push({
+            x: x + (Math.random() - 0.5) * 20,
+            y,
+            damage: Math.round(damage),
+            life: 1,
+            vy: -3,
+            isCrit
+        });
+    }, []);
+
     const createHitscan = useCallback((hitscanData) => {
         const gs = gameStateRef.current;
         if (!gs) return;
@@ -783,20 +797,6 @@ export default function Game() {
             type: 'default'
         });
     }, [createParticles, createDamageNumber, createRingExplosion]);
-
-    const createDamageNumber = useCallback((x, y, damage, isCrit = false) => {
-        const gs = gameStateRef.current;
-        if (!gs) return;
-        
-        gs.damageNumbers.push({
-            x: x + (Math.random() - 0.5) * 20,
-            y,
-            damage: Math.round(damage),
-            life: 1,
-            vy: -3,
-            isCrit
-        });
-    }, []);
 
     const shootBullet = useCallback((bulletData) => {
         const gs = gameStateRef.current;
