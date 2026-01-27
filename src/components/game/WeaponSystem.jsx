@@ -1091,6 +1091,60 @@ export const GEAR = {
         desc: 'Reflects 20% of incoming damage back (ONE TIME PURCHASE)',
         apply: (p) => p.hasReflectiveShield = true,
         unique: true // Can only be purchased once
+    },
+
+    // ===== ADVANCED SPEED MODULES =====
+    control_module: {
+        name: 'Control Module',
+        icon: '🎮',
+        desc: 'Enables drifting and precise speed control',
+        apply: (p) => p.hasControlModule = true
+    },
+    dash_v2: {
+        name: 'Dash Module V2',
+        icon: '⚡',
+        desc: 'Press X: 10x speed dash with drift (Requires Dash V1)',
+        apply: (p) => {
+            if (p.hasDash) {
+                p.hasDashV2 = true;
+                p.hasControlModule = true; // Includes drift
+            }
+        },
+        requires: 'dash'
+    },
+    afterburner: {
+        name: 'Afterburner',
+        icon: '🔥',
+        desc: 'PASSIVE: Leave burning trail at 150%+ speed (5 dmg/sec)',
+        apply: (p) => p.hasAfterburner = true
+    },
+    sandevistan: {
+        name: 'Sandevistan',
+        icon: '⏱️',
+        desc: 'Press Z: Time slows 80%, you speed up 200% (10s, 30s CD)',
+        apply: (p) => p.hasSandevistan = true
+    },
+    particle_accelerator: {
+        name: 'Particle Accelerator',
+        icon: '⚛️',
+        desc: 'Press X: 10x speed, drifting, leaves fire trail',
+        apply: (p) => {
+            p.hasParticleAccelerator = true;
+            p.hasControlModule = true;
+            p.hasAfterburner = true;
+        }
+    },
+    blitz: {
+        name: '"BLITZ" Dash Module V3',
+        icon: '💀',
+        desc: '15x speed dash + all effects + projectile ricochet',
+        apply: (p) => {
+            p.hasBlitz = true;
+            p.hasControlModule = true;
+            p.hasAfterburner = true;
+            p.hasDashV2 = true;
+        },
+        requires: 'dash_v2'
     }
 };
 

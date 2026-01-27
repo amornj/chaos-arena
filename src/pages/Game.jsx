@@ -5,6 +5,7 @@ import UpgradeModal from '@/components/game/UpgradeModal';
 import GameOverScreen from '@/components/game/GameOverScreen';
 import ClassSelection from '@/components/game/ClassSelection';
 import EnemyLog from '@/components/game/EnemyLog';
+import WeaponLog from '@/components/game/WeaponLog';
 import EnemyCounter from '@/components/game/EnemyCounter';
 import CheatPopup from '@/components/game/CheatPopup';
 import { createSFX } from '@/components/game/SoundEngine';
@@ -47,6 +48,7 @@ export default function Game() {
     const [rerolls, setRerolls] = useState(3);
     const maxRerolls = 3;
     const [showLog, setShowLog] = useState(false);
+    const [showWeaponLog, setShowWeaponLog] = useState(false);
     const [sandboxMode, setSandboxMode] = useState(false);
     const [showCheatPopup, setShowCheatPopup] = useState(false);
     const [cheatsEnabled, setCheatsEnabled] = useState(false);
@@ -915,12 +917,32 @@ export default function Game() {
         // Add gear upgrades after wave 3
         if (wave >= 3) {
             const gearKeys = Object.keys(GEAR);
+            const player = gs?.player;
             gearKeys.forEach(key => {
+                const gear = GEAR[key];
+
+                // Check gear requirements
+                if (gear.requires) {
+                    const reqKey = gear.requires;
+                    // Check if player has the required gear
+                    if (reqKey === 'dash' && !player?.hasDash) return;
+                    if (reqKey === 'dash_v2' && !player?.hasDashV2) return;
+                }
+
+                // Don't offer gear the player already has
+                if (key === 'dash' && player?.hasDash) return;
+                if (key === 'dash_v2' && player?.hasDashV2) return;
+                if (key === 'blitz' && player?.hasBlitz) return;
+                if (key === 'sandevistan' && player?.hasSandevistan) return;
+                if (key === 'particle_accelerator' && player?.hasParticleAccelerator) return;
+                if (key === 'afterburner' && player?.hasAfterburner) return;
+                if (key === 'control_module' && player?.hasControlModule) return;
+
                 const gearUpgrade = createGearUpgrade(key);
                 // Assign rarity based on gear type
-                const legendaryGear = ['orbital', 'time_slow', 'second_wind'];
-                const epicGear = ['chain_lightning', 'homing', 'teleport', 'gravity_well', 'overcharge'];
-                const rareGear = ['drone', 'dash', 'shield_gen', 'fortress', 'executioner'];
+                const legendaryGear = ['orbital', 'time_slow', 'second_wind', 'sandevistan', 'blitz'];
+                const epicGear = ['chain_lightning', 'homing', 'teleport', 'gravity_well', 'overcharge', 'particle_accelerator', 'dash_v2'];
+                const rareGear = ['drone', 'dash', 'shield_gen', 'fortress', 'executioner', 'afterburner', 'control_module'];
                 let rarity = 'common';
                 if (legendaryGear.includes(key)) rarity = 'legendary';
                 else if (epicGear.includes(key)) rarity = 'epic';
@@ -1037,21 +1059,98 @@ export default function Game() {
             }
         }
         
-        // Dash handling
-        if (keys.x && player.hasDash && !player.dashActive) {
+        // Dash handling (supports V1, V2, Particle Accelerator, and BLITZ)
+        if (keys.x && (player.hasDash || player.hasParticleAccelerator) && !player.dashActive) {
             if (!player.lastDash || now - player.lastDash > 5000) {
                 player.dashActive = true;
                 player.dashEndTime = now + 2000;
                 player.lastDash = now;
-                createParticles(player.x, player.y, '#00ffff', 20, 8);
-                sfxRef.current?.dash();
+
+                // Determine dash power based on module
+                if (player.hasBlitz) {
+                    player.dashPower = 15; // BLITZ: 15x speed
+                    player.blitzActive = true;
+                    createParticles(player.x, player.y, '#ff0000', 40, 12);
+                    sfxRef.current?.dash();
+                    triggerScreenShake(0.6);
+                } else if (player.hasParticleAccelerator || player.hasDashV2) {
+                    player.dashPower = 10; // V2/Particle: 10x speed
+                    createParticles(player.x, player.y, '#ff6600', 30, 10);
+                    sfxRef.current?.dash();
+                } else {
+                    player.dashPower = 4; // V1: 4x speed
+                    createParticles(player.x, player.y, '#00ffff', 20, 8);
+                    sfxRef.current?.dash();
+                }
             }
         }
-        
+
         if (player.dashActive && now < player.dashEndTime) {
-            createParticles(player.x, player.y, '#00ffff', 2, 2);
+            // Different trail colors based on module
+            const trailColor = player.hasBlitz ? '#ff0000' :
+                              (player.hasParticleAccelerator || player.hasDashV2) ? '#ff6600' : '#00ffff';
+            createParticles(player.x, player.y, trailColor, 3, 3);
+
+            // Afterburner fire trail for Particle Accelerator and BLITZ
+            if ((player.hasParticleAccelerator || player.hasBlitz) && !player.lastFireTrail || now - player.lastFireTrail > 100) {
+                player.lastFireTrail = now;
+                gs.fireZones = gs.fireZones || [];
+                gs.fireZones.push({
+                    x: player.x,
+                    y: player.y,
+                    radius: 25,
+                    damage: 5,
+                    endTime: now + 3000,
+                    color: player.hasBlitz ? '#ff2200' : '#ff6600'
+                });
+            }
         } else if (player.dashActive) {
             player.dashActive = false;
+            player.blitzActive = false;
+            player.dashPower = 1;
+        }
+
+        // Sandevistan (Z key) - Time slows, player speeds up
+        if (keys.z && player.hasSandevistan && !player.sandevistanActive) {
+            if (!player.lastSandevistan || now - player.lastSandevistan > 30000) {
+                player.sandevistanActive = true;
+                player.sandevistanEndTime = now + 10000; // Active for 10 seconds
+                player.lastSandevistan = now;
+                gs.timeSlowUntil = now + 20000; // Time slows for 20 seconds
+                gs.sandevistanTimeMultiplier = 0.2; // 80% slow
+                createParticles(player.x, player.y, '#ff00ff', 50, 20);
+                triggerScreenShake(0.4);
+                sfxRef.current?.chronosphere();
+            }
+        }
+
+        // Update Sandevistan state
+        if (player.sandevistanActive) {
+            if (now < player.sandevistanEndTime) {
+                // Player is sped up during Sandevistan
+                player.sandevistanBonus = 3; // 200% extra speed (3x total)
+                createParticles(player.x, player.y, '#ff00ff', 1, 2);
+            } else {
+                player.sandevistanActive = false;
+                player.sandevistanBonus = 1;
+            }
+        }
+
+        // Passive Afterburner trail when at 150%+ speed (not during dash - that has its own trail)
+        const currentSpeedPercent = (player.isSprinting ? 1.5 : 1) * (player.momentumBonus || 1);
+        if (player.hasAfterburner && currentSpeedPercent >= 1.5 && !player.dashActive && (dx !== 0 || dy !== 0)) {
+            if (!player.lastAfterburnerTrail || now - player.lastAfterburnerTrail > 150) {
+                player.lastAfterburnerTrail = now;
+                gs.fireZones = gs.fireZones || [];
+                gs.fireZones.push({
+                    x: player.x,
+                    y: player.y,
+                    radius: 20,
+                    damage: 5,
+                    endTime: now + 2000,
+                    color: '#ff4400'
+                });
+            }
         }
         
         // Afterimage
@@ -1281,19 +1380,70 @@ export default function Game() {
         // Calculate final speed multiplier
         const afterburnerBonus = (player.afterburnerUntil && now < player.afterburnerUntil) ? 2 : 1;
         const frostSlowPenalty = (player.frostSlowed && player.frostSlowUntil > now) ? 0.5 : 1;
-        const speedMultiplier = (player.dashActive ? 4 : (player.isSprinting ? 1.5 : 1))
-            * momentumBonus * quickstepBonus * slipstreamBonus * (nitroActive ? 2 : 1) * afterburnerBonus * frostSlowPenalty;
+        const dashBonus = player.dashActive ? (player.dashPower || 4) : 1;
+        const sandevistanBonus = player.sandevistanBonus || 1;
+        const speedMultiplier = (player.dashActive ? dashBonus : (player.isSprinting ? 1.5 : 1))
+            * momentumBonus * quickstepBonus * slipstreamBonus * (nitroActive ? 2 : 1) * afterburnerBonus * frostSlowPenalty * sandevistanBonus;
+
+        // Store current speed for afterburner check
+        player.momentumBonus = momentumBonus;
+
+        // Initialize velocity for drifting
+        if (!player.velocityX) player.velocityX = 0;
+        if (!player.velocityY) player.velocityY = 0;
+
+        // Drifting mechanics (Control Module / Dash V2 / Particle Accelerator / BLITZ)
+        const hasDriftCapability = player.hasControlModule || player.hasDashV2 || player.hasParticleAccelerator || player.hasBlitz;
+        const isDrifting = hasDriftCapability && (player.dashActive || speedMultiplier > 3);
 
         if (dx !== 0 || dy !== 0) {
             const len = Math.sqrt(dx * dx + dy * dy);
             dx /= len; dy /= len;
-            player.x += dx * player.speed * speedMultiplier;
-            player.y += dy * player.speed * speedMultiplier;
+
+            if (isDrifting) {
+                // Drift physics: gradual acceleration, maintains momentum
+                const acceleration = 0.15;
+                const targetVX = dx * player.speed * speedMultiplier;
+                const targetVY = dy * player.speed * speedMultiplier;
+
+                player.velocityX += (targetVX - player.velocityX) * acceleration;
+                player.velocityY += (targetVY - player.velocityY) * acceleration;
+
+                player.x += player.velocityX;
+                player.y += player.velocityY;
+
+                // Drift particles
+                if (Math.abs(player.velocityX) > 5 || Math.abs(player.velocityY) > 5) {
+                    const driftAngle = Math.atan2(player.velocityY, player.velocityX);
+                    const inputAngle = Math.atan2(dy, dx);
+                    const angleDiff = Math.abs(driftAngle - inputAngle);
+                    if (angleDiff > 0.3) {
+                        createParticles(player.x, player.y, '#ffaa00', 2, 4);
+                    }
+                }
+            } else {
+                // Normal movement
+                player.x += dx * player.speed * speedMultiplier;
+                player.y += dy * player.speed * speedMultiplier;
+                player.velocityX = dx * player.speed * speedMultiplier;
+                player.velocityY = dy * player.speed * speedMultiplier;
+            }
 
             // Create trail effect when moving fast
             if (speedMultiplier > 1.5 || nitroActive) {
                 createParticles(player.x, player.y, nitroActive ? '#ff6600' : '#00ffff', 1, 2);
             }
+        } else if (isDrifting) {
+            // Continue drifting when not pressing keys
+            const friction = 0.95;
+            player.velocityX *= friction;
+            player.velocityY *= friction;
+            player.x += player.velocityX;
+            player.y += player.velocityY;
+
+            // Stop drifting when velocity is low
+            if (Math.abs(player.velocityX) < 0.5) player.velocityX = 0;
+            if (Math.abs(player.velocityY) < 0.5) player.velocityY = 0;
         }
         
         // Keep player in bounds
@@ -1328,9 +1478,10 @@ export default function Game() {
             }
         }
 
-        // Time slow effect
+        // Time slow effect (Sandevistan uses 80% slow, regular time slow uses 50%)
         const timeSlowActive = gs.timeSlowUntil && now < gs.timeSlowUntil;
-        const timeMultiplier = timeSlowActive ? 0.5 : 1;
+        const sandevistanSlowMultiplier = gs.sandevistanTimeMultiplier || 0.5;
+        const timeMultiplier = timeSlowActive ? (player.sandevistanActive ? sandevistanSlowMultiplier : 0.5) : 1;
 
         // Overcharge active
         const overchargeActive = player.overchargeUntil && now < player.overchargeUntil;
@@ -2939,6 +3090,19 @@ export default function Game() {
                 // Hit player
                 const dist = Math.hypot(player.x - b.x, player.y - b.y);
                 if (dist < PLAYER_SIZE + b.size && !player.invulnerable) {
+                    // BLITZ projectile ricochet: bullets bounce back at 15x speed
+                    if (player.blitzActive && player.dashActive) {
+                        // Reverse bullet direction (180 degree turn)
+                        b.vx = -b.vx * 2;
+                        b.vy = -b.vy * 2;
+                        b.isEnemy = false; // Now it's the player's bullet
+                        b.damage = b.damage * 3; // Triple damage on ricochet
+                        b.color = '#ff00ff'; // Change color to indicate ricochet
+                        createParticles(b.x, b.y, '#ff00ff', 15, 8);
+                        sfxRef.current?.shieldHit();
+                        continue; // Don't damage player
+                    }
+
                     // Evasion check (blur adds +20% while moving)
                     const blurBonus = (player.hasBlur && (gs.keys.w || gs.keys.a || gs.keys.s || gs.keys.d)) ? 0.2 : 0;
                     const totalEvasion = (player.evasionChance || 0) + blurBonus;
@@ -5460,11 +5624,17 @@ export default function Game() {
                     </Button>
 
                     <div className="mt-12 flex gap-4">
-                        <Button 
+                        <Button
                             onClick={() => setShowLog(true)}
                             className="bg-gray-800 hover:bg-gray-700 text-green-400 font-mono border border-green-500/30"
                         >
-                            [LOG]
+                            [ENEMY LOG]
+                        </Button>
+                        <Button
+                            onClick={() => setShowWeaponLog(true)}
+                            className="bg-gray-800 hover:bg-gray-700 text-cyan-400 font-mono border border-cyan-500/30"
+                        >
+                            [ARSENAL]
                         </Button>
                     </div>
 
@@ -5625,6 +5795,10 @@ export default function Game() {
                         createParticles(x, y, config.color, 15, 8);
                     }}
                 />
+            )}
+
+            {showWeaponLog && (
+                <WeaponLog onClose={() => setShowWeaponLog(false)} />
             )}
         </div>
     );
