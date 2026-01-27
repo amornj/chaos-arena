@@ -3977,6 +3977,60 @@ export default function Game() {
         for (let i = enemies.length - 1; i >= 0; i--) {
             const e = enemies[i];
 
+            // Universal death check - kill enemies with health < 1
+            if (e.health < 1) {
+                const scoreMultiplier = player.scoreMultiplier || 1;
+                gs.score += (e.points || 10) * (1 + gs.combo * 0.1) * scoreMultiplier;
+                gs.kills++;
+                gs.totalKills++;
+                gs.combo++;
+                gs.comboTimer = 120;
+
+                if (e.type === 'boss') {
+                    sfxRef.current?.killBoss();
+                    triggerScreenShake(1);
+                } else {
+                    sfxRef.current?.kill();
+                    triggerScreenShake(0.2);
+                }
+
+                createDeathExplosion(e.x, e.y, e.color, e.size, e.type === 'boss');
+
+                // Adrenaline heal on kill
+                if (player.adrenalineHeal > 0) {
+                    player.health = Math.min(player.maxHealth, player.health + player.adrenalineHeal);
+                }
+
+                // Lifesteal on kill
+                if (player.lifesteal > 0) {
+                    player.health = Math.min(player.maxHealth, player.health + player.lifesteal * 10);
+                }
+
+                // Chain lightning on kill
+                if (player.hasChainLightning) {
+                    const chainRange = 150;
+                    const chainDamage = player.damage * 0.5;
+                    enemies.forEach(other => {
+                        if (other !== e) {
+                            const dist = Math.hypot(other.x - e.x, other.y - e.y);
+                            if (dist < chainRange) {
+                                other.health -= chainDamage;
+                                other.hitFlash = 5;
+                                createParticles(other.x, other.y, '#88ffff', 8, 4);
+                            }
+                        }
+                    });
+                }
+
+                // Quickstep speed boost
+                if (player.hasQuickstep) {
+                    player.quickstepUntil = now + 1000;
+                }
+
+                enemies.splice(i, 1);
+                continue;
+            }
+
             // Apply knockback
             if (e.knockbackVx || e.knockbackVy) {
                 e.x += e.knockbackVx || 0;
