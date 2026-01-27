@@ -47,6 +47,8 @@ export default function Game() {
     const [availableUpgrades, setAvailableUpgrades] = useState([]);
     const [rerolls, setRerolls] = useState(3);
     const maxRerolls = 3;
+    const [credits, setCredits] = useState(0);
+    const [upgradeHistory, setUpgradeHistory] = useState([]);
     const [showLog, setShowLog] = useState(false);
     const [showWeaponLog, setShowWeaponLog] = useState(false);
     const [sandboxMode, setSandboxMode] = useState(false);
@@ -974,7 +976,7 @@ export default function Game() {
             return selected;
         };
 
-        return selectWeighted(allUpgrades, 3);
+        return selectWeighted(allUpgrades, 4);
     }, []);
 
     const applyUpgrade = useCallback((upgrade) => {
@@ -982,15 +984,26 @@ export default function Game() {
         if (gs) {
             upgrade.apply(gs.player);
             sfxRef.current?.upgrade();
+            // Track upgrade history
+            setUpgradeHistory(prev => [...prev, {
+                id: upgrade.id,
+                name: upgrade.name,
+                icon: upgrade.icon,
+                rarity: upgrade.rarity,
+                wave: gs.wave - 1
+            }]);
             setShowUpgrades(false);
             setIsPaused(false);
         }
     }, []);
 
+    const rerollCost = 25; // Credits cost per reroll
+
     const handleReroll = useCallback(() => {
-        if (rerolls > 0) {
+        if (rerolls > 0 && credits >= rerollCost) {
             sfxRef.current?.menuSelect();
             setRerolls(prev => prev - 1);
+            setCredits(prev => prev - rerollCost);
             setAvailableUpgrades(generateUpgrades());
         }
     }, [rerolls, generateUpgrades]);
@@ -1638,10 +1651,9 @@ export default function Game() {
                 setShowUpgrades(true);
                 setIsPaused(true);
 
-                // Bonus reroll every 5 waves
-                if (gs.wave % 5 === 0) {
-                    setRerolls(prev => Math.min(prev + 1, maxRerolls + 2));
-                }
+                // Reset rerolls to 3 every wave (bonus +1 every 5 waves)
+                const bonusRerolls = Math.floor(gs.wave / 5);
+                setRerolls(maxRerolls + bonusRerolls);
 
                 // Start next wave
                 gs.wave++;
@@ -3986,6 +3998,16 @@ export default function Game() {
                 gs.combo++;
                 gs.comboTimer = 120;
 
+                // Award credits based on enemy difficulty
+                let creditReward = Math.ceil((e.points || 10) / 5); // Base: 2 credits for basic enemy
+                if (e.type === 'boss') creditReward = 50 + Math.floor(gs.wave * 5); // Bosses give 50+ credits
+                else if (e.type === 'elite') creditReward = 15;
+                else if (e.maxHealth > 100) creditReward = 10; // Tanky enemies
+                else if (e.maxHealth > 50) creditReward = 5;
+                creditReward = Math.ceil(creditReward * (1 + gs.wave * 0.1)); // Scale with wave
+                gs.credits = (gs.credits || 0) + creditReward;
+                setCredits(prev => prev + creditReward);
+
                 if (e.type === 'boss') {
                     sfxRef.current?.killBoss();
                     triggerScreenShake(1);
@@ -5181,7 +5203,31 @@ export default function Game() {
             weapon: WEAPONS[player.currentWeapon]?.name || 'Pistol',
             abilityReady,
             abilityName: player.ability.name,
-            abilityCooldown: abilityReady ? 0 : Math.ceil((player.ability.cooldown * 1000 - (now - player.ability.lastUsed)) / 1000)
+            abilityCooldown: abilityReady ? 0 : Math.ceil((player.ability.cooldown * 1000 - (now - player.ability.lastUsed)) / 1000),
+            credits: credits,
+            playerAbilities: {
+                hasDash: player.hasDash,
+                hasDashV2: player.hasDashV2,
+                hasBlitz: player.hasBlitz,
+                hasParticleAccelerator: player.hasParticleAccelerator,
+                hasSandevistan: player.hasSandevistan,
+                hasAfterburner: player.hasAfterburner,
+                hasControlModule: player.hasControlModule,
+                hasAfterimage: player.hasAfterimage,
+                hasTeleport: player.hasTeleport,
+                hasDaze: player.hasDaze,
+                hasMedicine: player.hasMedicine,
+                hasTimeSlow: player.hasTimeSlow,
+                hasOrbital: player.hasOrbital,
+                hasGravityWell: player.hasGravityWell,
+                hasShockwave: player.hasShockwave,
+                hasOvercharge: player.hasOvercharge,
+                hasNitro: player.hasNitro,
+                hasSword: player.hasSword,
+                hasJackhammer: player.hasJackhammer,
+                hasDecoy: player.hasDecoy,
+                droneCount: player.droneCount || 0
+            }
         });
 
         if (!gameOver) {
@@ -5194,6 +5240,8 @@ export default function Game() {
         setGameOver(false);
         setIsPaused(false);
         setRerolls(maxRerolls);
+        setCredits(0);
+        setUpgradeHistory([]);
 
         // Wait for canvas to be visible before initializing
         setTimeout(() => {
@@ -5728,6 +5776,9 @@ export default function Game() {
                     rerolls={rerolls}
                     maxRerolls={maxRerolls}
                     onReroll={handleReroll}
+                    credits={credits}
+                    rerollCost={rerollCost}
+                    upgradeHistory={upgradeHistory}
                 />
             )}
 
