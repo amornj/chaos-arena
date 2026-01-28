@@ -8,6 +8,7 @@ import EnemyLog from '@/components/game/EnemyLog';
 import WeaponLog from '@/components/game/WeaponLog';
 import EnemyCounter from '@/components/game/EnemyCounter';
 import CheatPopup from '@/components/game/CheatPopup';
+import SandboxUI, { OBSTACLE_TYPES } from '@/components/game/SandboxUI';
 import { createSFX } from '@/components/game/SoundEngine';
 import { shootWeapon, createWeaponUpgrade, createGearUpgrade, WEAPONS, GEAR } from '@/components/game/WeaponSystem';
 
@@ -166,7 +167,8 @@ export default function Game() {
             keys: {},
             mouse: { x: canvas.width / 2, y: canvas.height / 2, down: false },
             difficultyMultiplier: 1,
-            sandboxMode: false
+            sandboxMode: false,
+            obstacles: []
         };
     }, []);
 
@@ -1047,6 +1049,39 @@ export default function Game() {
             ctx.stroke();
         }
 
+        // Draw obstacles
+        if (gs.obstacles && gs.obstacles.length > 0) {
+            gs.obstacles.forEach(obs => {
+                ctx.fillStyle = obs.color;
+                ctx.globalAlpha = obs.slow || obs.heal ? 0.4 : 0.8;
+                ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+                ctx.globalAlpha = 1;
+
+                // Border
+                ctx.strokeStyle = obs.damage ? '#ff0000' : obs.slow ? '#00ffff' : obs.heal ? '#00ff00' : obs.bounce ? '#ffaa00' : '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(obs.x, obs.y, obs.width, obs.height);
+
+                // Effects
+                if (obs.damage && Math.random() > 0.7) {
+                    ctx.fillStyle = '#ff4444';
+                    ctx.beginPath();
+                    ctx.arc(
+                        obs.x + Math.random() * obs.width,
+                        obs.y + Math.random() * obs.height,
+                        2 + Math.random() * 3,
+                        0, Math.PI * 2
+                    );
+                    ctx.fill();
+                }
+                if (obs.heal && Math.random() > 0.8) {
+                    ctx.fillStyle = '#44ff44';
+                    ctx.font = '12px monospace';
+                    ctx.fillText('+', obs.x + Math.random() * obs.width, obs.y + Math.random() * obs.height);
+                }
+            });
+        }
+
         // Player movement
         let dx = 0, dy = 0;
         if (keys['w'] || keys['arrowup']) dy -= 1;
@@ -1392,8 +1427,9 @@ export default function Game() {
         const frostSlowPenalty = (player.frostSlowed && player.frostSlowUntil > now) ? 0.5 : 1;
         const dashBonus = player.dashActive ? (player.dashPower || 4) : 1;
         const sandevistanBonus = player.sandevistanBonus || 1;
+        const obstacleSlowFactor = player.obstacleSlowed ? (player.obstacleSlowFactor || 0.4) : 1;
         const speedMultiplier = (player.dashActive ? dashBonus : (player.isSprinting ? 1.5 : 1))
-            * momentumBonus * quickstepBonus * slipstreamBonus * (nitroActive ? 2 : 1) * afterburnerBonus * frostSlowPenalty * sandevistanBonus;
+            * momentumBonus * quickstepBonus * slipstreamBonus * (nitroActive ? 2 : 1) * afterburnerBonus * frostSlowPenalty * sandevistanBonus * obstacleSlowFactor;
 
         // Store current speed for afterburner check
         player.momentumBonus = momentumBonus;
@@ -1459,6 +1495,71 @@ export default function Game() {
         // Keep player in bounds
         player.x = Math.max(PLAYER_SIZE, Math.min(canvas.width - PLAYER_SIZE, player.x));
         player.y = Math.max(PLAYER_SIZE, Math.min(canvas.height - PLAYER_SIZE, player.y));
+
+        // Obstacle collision effects
+        if (gs.obstacles && gs.obstacles.length > 0) {
+            // Reset slow flag before checking obstacles
+            player.obstacleSlowed = false;
+
+            gs.obstacles.forEach(obs => {
+                // Check if player is inside obstacle
+                if (player.x > obs.x - PLAYER_SIZE && player.x < obs.x + obs.width + PLAYER_SIZE &&
+                    player.y > obs.y - PLAYER_SIZE && player.y < obs.y + obs.height + PLAYER_SIZE) {
+
+                    // Solid wall collision
+                    if (!obs.slow && !obs.heal && !obs.bounce && !obs.damage) {
+                        // Push player out
+                        const centerX = obs.x + obs.width / 2;
+                        const centerY = obs.y + obs.height / 2;
+                        const obsDx = player.x - centerX;
+                        const obsDy = player.y - centerY;
+
+                        if (Math.abs(obsDx) > Math.abs(obsDy)) {
+                            player.x = obsDx > 0 ? obs.x + obs.width + PLAYER_SIZE : obs.x - PLAYER_SIZE;
+                        } else {
+                            player.y = obsDy > 0 ? obs.y + obs.height + PLAYER_SIZE : obs.y - PLAYER_SIZE;
+                        }
+                    }
+
+                    // Damage zone
+                    if (obs.damage && !player.invulnerable) {
+                        if (!player.lastObstacleDamage || now - player.lastObstacleDamage > 500) {
+                            player.lastObstacleDamage = now;
+                            player.health -= 10;
+                            createDamageNumber(player.x, player.y - 20, 10, false);
+                            createParticles(player.x, player.y, '#ff0000', 10, 6);
+                        }
+                    }
+
+                    // Slow zone
+                    if (obs.slow) {
+                        player.obstacleSlowed = true;
+                        player.obstacleSlowFactor = 0.4;
+                    }
+
+                    // Heal zone
+                    if (obs.heal) {
+                        if (!player.lastObstacleHeal || now - player.lastObstacleHeal > 1000) {
+                            player.lastObstacleHeal = now;
+                            player.health = Math.min(player.maxHealth, player.health + 5);
+                            createParticles(player.x, player.y, '#00ff00', 5, 4);
+                        }
+                    }
+
+                    // Bounce pad
+                    if (obs.bounce) {
+                        if (!player.lastBounce || now - player.lastBounce > 500) {
+                            player.lastBounce = now;
+                            const bounceDir = Math.atan2(player.y - (obs.y + obs.height / 2), player.x - (obs.x + obs.width / 2));
+                            player.velocityX = Math.cos(bounceDir) * 20;
+                            player.velocityY = Math.sin(bounceDir) * 20;
+                            createParticles(player.x, player.y, '#ffaa00', 15, 8);
+                            sfxRef.current?.dash();
+                        }
+                    }
+                }
+            });
+        }
 
         // Player regeneration
         if (player.regen > 0) {
@@ -5284,6 +5385,157 @@ export default function Game() {
         startGame(sandboxClass);
     }, [startGame]);
 
+    // Sandbox mode callbacks
+    const sandboxSpawnEnemy = useCallback((enemyType, x, y) => {
+        const gs = gameStateRef.current;
+        if (!gs) return;
+
+        const enemyConfigs = {
+            basic: { health: 30, speed: 2, damage: 5, size: 18, color: '#ff4444', points: 10 },
+            fast: { health: 15, speed: 4, damage: 5, size: 16, color: '#ffff00', points: 25 },
+            tank: { health: 80, speed: 1.5, damage: 15, size: 25, color: '#4444ff', points: 40 },
+            swarm: { health: 8, speed: 3, damage: 3, size: 8, color: '#00ff00', points: 5 },
+            shooter: { health: 30, speed: 1.5, damage: 6, size: 18, color: '#ff00ff', points: 15, shoots: true },
+            exploder: { health: 25, speed: 2, damage: 20, size: 20, color: '#ff8800', points: 20, explodes: true, fuseTime: 3 },
+            dasher: { health: 35, speed: 2, damage: 8, size: 16, color: '#00ffff', points: 22, dashes: true },
+            splitter: { health: 40, speed: 1.8, damage: 8, size: 22, color: '#88ff88', points: 30 },
+            healer: { health: 45, speed: 1.5, damage: 5, size: 18, color: '#ff88ff', points: 25, regenerates: true },
+            shielder: { health: 60, speed: 1.5, damage: 10, size: 20, color: '#8888ff', points: 35, armor: 0.3 },
+            boss: { health: 500, speed: 1.5, damage: 15, size: 40, color: '#ff0000', points: 100 },
+            miniboss: { health: 200, speed: 1.8, damage: 12, size: 30, color: '#ff4400', points: 50 }
+        };
+
+        const config = enemyConfigs[enemyType];
+        if (!config) return;
+
+        const enemy = {
+            x, y,
+            health: config.health,
+            maxHealth: config.health,
+            speed: config.speed,
+            baseSpeed: config.speed,
+            damage: config.damage,
+            size: config.size,
+            color: config.color,
+            points: config.points,
+            type: enemyType,
+            shoots: config.shoots,
+            lastShot: 0,
+            lastMeleeHit: 0,
+            hitFlash: 0,
+            explodes: config.explodes,
+            fuseTime: config.fuseTime,
+            spawnTime: Date.now(),
+            dashes: config.dashes,
+            dashCooldown: 0,
+            isDashing: false,
+            dashAngle: 0,
+            regenerates: config.regenerates,
+            armor: config.armor,
+            lastRegen: 0
+        };
+
+        gs.enemies.push(enemy);
+    }, []);
+
+    const sandboxPlaceObstacle = useCallback((obstacleType, x, y) => {
+        const gs = gameStateRef.current;
+        if (!gs) return;
+
+        const typeConfig = OBSTACLE_TYPES.find(o => o.id === obstacleType);
+        if (!typeConfig) return;
+
+        // Initialize obstacles array if it doesn't exist
+        if (!gs.obstacles) gs.obstacles = [];
+
+        const obstacle = {
+            id: Date.now() + Math.random(),
+            type: obstacleType,
+            x: x - typeConfig.width / 2,
+            y: y - typeConfig.height / 2,
+            width: typeConfig.width,
+            height: typeConfig.height,
+            color: typeConfig.color,
+            damage: typeConfig.damage,
+            slow: typeConfig.slow,
+            heal: typeConfig.heal,
+            bounce: typeConfig.bounce
+        };
+
+        gs.obstacles.push(obstacle);
+    }, []);
+
+    const sandboxDeleteAt = useCallback((x, y) => {
+        const gs = gameStateRef.current;
+        if (!gs) return;
+
+        // Delete enemy at position
+        if (gs.enemies) {
+            gs.enemies = gs.enemies.filter(e => {
+                const dist = Math.hypot(e.x - x, e.y - y);
+                return dist > e.size + 20;
+            });
+        }
+
+        // Delete obstacle at position
+        if (gs.obstacles) {
+            gs.obstacles = gs.obstacles.filter(o => {
+                return !(x >= o.x && x <= o.x + o.width && y >= o.y && y <= o.y + o.height);
+            });
+        }
+    }, []);
+
+    const sandboxMovePlayer = useCallback((x, y) => {
+        const gs = gameStateRef.current;
+        if (!gs) return;
+        gs.player.x = x;
+        gs.player.y = y;
+    }, []);
+
+    const sandboxClearAll = useCallback(() => {
+        const gs = gameStateRef.current;
+        if (!gs) return;
+        gs.enemies = [];
+        gs.obstacles = [];
+        gs.bullets = [];
+        gs.particles = [];
+    }, []);
+
+    const sandboxToggleGodMode = useCallback(() => {
+        const gs = gameStateRef.current;
+        if (!gs) return;
+        gs.player.invulnerable = !gs.player.invulnerable;
+    }, []);
+
+    const sandboxSetWave = useCallback((wave) => {
+        const gs = gameStateRef.current;
+        if (!gs) return;
+        gs.wave = wave;
+        gs.difficultyMultiplier = 1 + (wave - 1) * 0.1;
+        setUiState(prev => ({ ...prev, wave }));
+    }, []);
+
+    const sandboxSpawnWave = useCallback(() => {
+        const gs = gameStateRef.current;
+        if (!gs) return;
+        const count = 5 + gs.wave * 2;
+        for (let i = 0; i < count; i++) {
+            const side = Math.floor(Math.random() * 4);
+            let x, y;
+            switch (side) {
+                case 0: x = Math.random() * gs.canvas.width; y = -30; break;
+                case 1: x = gs.canvas.width + 30; y = Math.random() * gs.canvas.height; break;
+                case 2: x = Math.random() * gs.canvas.width; y = gs.canvas.height + 30; break;
+                default: x = -30; y = Math.random() * gs.canvas.height;
+            }
+            sandboxSpawnEnemy('basic', x, y);
+        }
+    }, [sandboxSpawnEnemy]);
+
+    const sandboxTogglePause = useCallback(() => {
+        setIsPaused(prev => !prev);
+    }, []);
+
     useEffect(() => {
         const handleKeyDown = (e) => {
             if (gameStateRef.current) {
@@ -5778,6 +6030,24 @@ export default function Game() {
                 <>
                     <GameUI {...uiState} />
                     <EnemyCounter enemies={gameStateRef.current?.enemies || []} />
+                    {sandboxMode && (
+                        <SandboxUI
+                            onSpawnEnemy={sandboxSpawnEnemy}
+                            onPlaceObstacle={sandboxPlaceObstacle}
+                            onDeleteAt={sandboxDeleteAt}
+                            onMovePlayer={sandboxMovePlayer}
+                            onClearAll={sandboxClearAll}
+                            onToggleGodMode={sandboxToggleGodMode}
+                            onSetWave={sandboxSetWave}
+                            onSpawnWave={sandboxSpawnWave}
+                            onTogglePause={sandboxTogglePause}
+                            godMode={gameStateRef.current?.player?.invulnerable || false}
+                            isPaused={isPaused}
+                            currentWave={uiState.wave}
+                            enemyCount={gameStateRef.current?.enemies?.length || 0}
+                            obstacleCount={gameStateRef.current?.obstacles?.length || 0}
+                        />
+                    )}
                 </>
             )}
 
