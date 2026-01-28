@@ -47,7 +47,6 @@ export default function Game() {
     const [availableUpgrades, setAvailableUpgrades] = useState([]);
     const [rerolls, setRerolls] = useState(3);
     const maxRerolls = 3;
-    const [credits, setCredits] = useState(0);
     const [upgradeHistory, setUpgradeHistory] = useState([]);
     const [showLog, setShowLog] = useState(false);
     const [showWeaponLog, setShowWeaponLog] = useState(false);
@@ -997,13 +996,10 @@ export default function Game() {
         }
     }, []);
 
-    const rerollCost = 25; // Credits cost per reroll
-
     const handleReroll = useCallback(() => {
-        if (rerolls > 0 && credits >= rerollCost) {
+        if (rerolls > 0) {
             sfxRef.current?.menuSelect();
             setRerolls(prev => prev - 1);
-            setCredits(prev => prev - rerollCost);
             setAvailableUpgrades(generateUpgrades());
         }
     }, [rerolls, generateUpgrades]);
@@ -3998,16 +3994,6 @@ export default function Game() {
                 gs.combo++;
                 gs.comboTimer = 120;
 
-                // Award credits based on enemy difficulty
-                let creditReward = Math.ceil((e.points || 10) / 5); // Base: 2 credits for basic enemy
-                if (e.type === 'boss') creditReward = 50 + Math.floor(gs.wave * 5); // Bosses give 50+ credits
-                else if (e.type === 'elite') creditReward = 15;
-                else if (e.maxHealth > 100) creditReward = 10; // Tanky enemies
-                else if (e.maxHealth > 50) creditReward = 5;
-                creditReward = Math.ceil(creditReward * (1 + gs.wave * 0.1)); // Scale with wave
-                gs.credits = (gs.credits || 0) + creditReward;
-                setCredits(prev => prev + creditReward);
-
                 if (e.type === 'boss') {
                     sfxRef.current?.killBoss();
                     triggerScreenShake(1);
@@ -5204,7 +5190,6 @@ export default function Game() {
             abilityReady,
             abilityName: player.ability.name,
             abilityCooldown: abilityReady ? 0 : Math.ceil((player.ability.cooldown * 1000 - (now - player.ability.lastUsed)) / 1000),
-            credits: credits,
             playerAbilities: {
                 hasDash: player.hasDash,
                 hasDashV2: player.hasDashV2,
@@ -5240,7 +5225,6 @@ export default function Game() {
         setGameOver(false);
         setIsPaused(false);
         setRerolls(maxRerolls);
-        setCredits(0);
         setUpgradeHistory([]);
 
         // Wait for canvas to be visible before initializing
@@ -5776,8 +5760,6 @@ export default function Game() {
                     rerolls={rerolls}
                     maxRerolls={maxRerolls}
                     onReroll={handleReroll}
-                    credits={credits}
-                    rerollCost={rerollCost}
                     upgradeHistory={upgradeHistory}
                 />
             )}

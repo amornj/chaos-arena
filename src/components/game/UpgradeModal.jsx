@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 
-export default function UpgradeModal({ upgrades, onSelect, wave, rerolls, maxRerolls, onReroll, credits, rerollCost, upgradeHistory }) {
-    const canReroll = rerolls > 0 && credits >= rerollCost;
+export default function UpgradeModal({ upgrades, onSelect, wave, rerolls, maxRerolls, onReroll, upgradeHistory }) {
+    const canReroll = rerolls > 0;
     const [showHistory, setShowHistory] = useState(false);
 
     return (
@@ -11,17 +11,6 @@ export default function UpgradeModal({ upgrades, onSelect, wave, rerolls, maxRer
             animate={{ opacity: 1 }}
             className="absolute inset-0 bg-black/90 backdrop-blur-sm flex flex-col items-center justify-center z-30 overflow-auto py-8"
         >
-            {/* Credits display */}
-            <motion.div
-                initial={{ y: -30, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                className="absolute top-4 right-4 flex items-center gap-2 bg-yellow-500/10 border border-yellow-500/50 px-4 py-2"
-            >
-                <span className="text-2xl">$</span>
-                <span className="text-2xl font-black text-yellow-400">{credits}</span>
-                <span className="text-yellow-600 text-sm">CREDITS</span>
-            </motion.div>
-
             {/* History toggle */}
             <motion.button
                 initial={{ y: -30, opacity: 0 }}
@@ -155,22 +144,17 @@ export default function UpgradeModal({ upgrades, onSelect, wave, rerolls, maxRer
                     }`}
                 >
                     <span className="flex items-center gap-2">
-                        <span className="text-xl">$</span>
+                        <span className="text-xl">🎲</span>
                         Reroll
                         <span className={`px-2 py-0.5 text-xs ${canReroll ? 'bg-orange-500/30' : 'bg-gray-700/50'}`}>
-                            {rerollCost} credits
-                        </span>
-                        <span className={`px-2 py-0.5 text-xs ${canReroll ? 'bg-orange-500/30' : 'bg-gray-700/50'}`}>
-                            {rerolls} left
+                            {rerolls}/{maxRerolls}
                         </span>
                     </span>
                 </button>
                 <p className="text-gray-500 text-xs">
-                    {!canReroll && rerolls > 0 && credits < rerollCost
-                        ? `Need ${rerollCost - credits} more credits`
-                        : rerolls <= 0
-                        ? 'No rerolls left this wave!'
-                        : `${rerolls} reroll${rerolls !== 1 ? 's' : ''} available`}
+                    {canReroll
+                        ? `${rerolls} reroll${rerolls !== 1 ? 's' : ''} remaining`
+                        : 'No rerolls left this wave!'}
                 </p>
             </motion.div>
 

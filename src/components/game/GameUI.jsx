@@ -28,7 +28,7 @@ const ABILITY_KEYS = {
 
 export default function GameUI({
     health, maxHealth, wave, score, kills, combo, shield, weapon,
-    abilityReady, abilityName, abilityCooldown, credits, playerAbilities
+    abilityReady, abilityName, abilityCooldown, playerAbilities
 }) {
     const healthPercent = (health / maxHealth) * 100;
 
@@ -81,7 +81,7 @@ export default function GameUI({
                     )}
                 </div>
 
-                {/* Wave & Score & Credits */}
+                {/* Wave & Score */}
                 <div className="text-right">
                     <div className="flex items-center justify-end gap-2 mb-1">
                         <span className="text-gray-400 text-sm uppercase tracking-widest">Wave</span>
@@ -91,12 +91,6 @@ export default function GameUI({
                     </div>
                     <div className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500">
                         {score.toLocaleString()}
-                    </div>
-                    {/* Credits display */}
-                    <div className="flex items-center justify-end gap-1 mt-1">
-                        <span className="text-yellow-500 text-lg">$</span>
-                        <span className="text-lg font-bold text-yellow-400">{credits || 0}</span>
-                        <span className="text-yellow-600 text-xs">CR</span>
                     </div>
                 </div>
             </div>
