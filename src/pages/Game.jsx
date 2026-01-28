@@ -165,7 +165,8 @@ export default function Game() {
             screenShake: { x: 0, y: 0, intensity: 0 },
             keys: {},
             mouse: { x: canvas.width / 2, y: canvas.height / 2, down: false },
-            difficultyMultiplier: 1
+            difficultyMultiplier: 1,
+            sandboxMode: false
         };
     }, []);
 
@@ -5233,6 +5234,14 @@ export default function Game() {
             const gs = gameStateRef.current;
             if (gs) {
                 gs.startTime = Date.now();
+                // Enable sandbox mode if selected
+                if (classData.id === 'sandbox') {
+                    gs.sandboxMode = true;
+                    gs.player.invulnerable = true;
+                    gs.player.health = 9999;
+                    gs.player.maxHealth = 9999;
+                    gs.player.damage = 100;
+                }
                 console.log('Game initialized:', gs.canvas.width, 'x', gs.canvas.height);
             }
             sfxRef.current?.start();
@@ -5253,6 +5262,26 @@ export default function Game() {
         setSelectedClass(classData);
         setClassSelected(true);
         startGame(classData);
+    }, [startGame]);
+
+    const handleSandboxMode = useCallback(() => {
+        // Create a sandbox character with maxed stats
+        const sandboxClass = {
+            id: 'sandbox',
+            name: 'SANDBOX',
+            symbol: 'GOD',
+            bgColor: 'bg-purple-600',
+            accentColor: 'text-purple-400',
+            borderColor: 'border-purple-500',
+            desc: 'Unlimited power',
+            stats: { health: 9999, damage: 100, speed: 8, fireRate: 50, weapon: 'pistol' },
+            passives: [],
+            ability: { name: 'GOD MODE', desc: 'Invulnerable and overpowered', cooldown: 0, type: 'passive' }
+        };
+        setSelectedClass(sandboxClass);
+        setClassSelected(true);
+        setSandboxMode(true);
+        startGame(sandboxClass);
     }, [startGame]);
 
     useEffect(() => {
@@ -5733,7 +5762,7 @@ export default function Game() {
             ) : null}
 
             {classSelected && !gameStarted && (
-                <ClassSelection onSelect={handleClassSelect} />
+                <ClassSelection onSelect={handleClassSelect} onSandbox={handleSandboxMode} />
             )}
 
             <canvas 
