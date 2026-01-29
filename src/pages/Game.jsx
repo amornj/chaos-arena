@@ -1667,11 +1667,10 @@ export default function Game() {
                 ctx.fillStyle = '#ffffff';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-                // Draw player as black dots during shatter
+                // Draw player as black sphere during shatter
                 ctx.fillStyle = '#000000';
                 ctx.beginPath();
-                ctx.arc(player.x - 8, player.y - 5, 5, 0, Math.PI * 2);
-                ctx.arc(player.x + 8, player.y - 5, 5, 0, Math.PI * 2);
+                ctx.arc(player.x, player.y, PLAYER_SIZE, 0, Math.PI * 2);
                 ctx.fill();
 
                 // Draw shatter particles
@@ -1705,17 +1704,15 @@ export default function Game() {
                     ctx.fillStyle = '#ffffff';
                     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-                    // Draw player as black dots
+                    // Draw player as black sphere
                     ctx.fillStyle = '#000000';
                     ctx.beginPath();
-                    ctx.arc(player.x - 8, player.y - 5, 5, 0, Math.PI * 2);
-                    ctx.arc(player.x + 8, player.y - 5, 5, 0, Math.PI * 2);
+                    ctx.arc(player.x, player.y, PLAYER_SIZE, 0, Math.PI * 2);
                     ctx.fill();
 
-                    // Draw target as black dots too
+                    // Draw target as black sphere
                     ctx.beginPath();
-                    ctx.arc(target.x - target.size * 0.3, target.y - target.size * 0.2, target.size * 0.2, 0, Math.PI * 2);
-                    ctx.arc(target.x + target.size * 0.3, target.y - target.size * 0.2, target.size * 0.2, 0, Math.PI * 2);
+                    ctx.arc(target.x, target.y, target.size, 0, Math.PI * 2);
                     ctx.fill();
 
                 } else if (iai.phase === 'slashing' || iai.phase === 'execution') {
@@ -1780,17 +1777,15 @@ export default function Game() {
                     ctx.fillStyle = '#ffffff';
                     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-                    // Draw player as black dots
+                    // Draw player as black sphere
                     ctx.fillStyle = '#000000';
                     ctx.beginPath();
-                    ctx.arc(player.x - 8, player.y - 5, 5, 0, Math.PI * 2);
-                    ctx.arc(player.x + 8, player.y - 5, 5, 0, Math.PI * 2);
+                    ctx.arc(player.x, player.y, PLAYER_SIZE, 0, Math.PI * 2);
                     ctx.fill();
 
-                    // Draw target as black dots
+                    // Draw target as black sphere
                     ctx.beginPath();
-                    ctx.arc(target.x - target.size * 0.3, target.y - target.size * 0.2, target.size * 0.25, 0, Math.PI * 2);
-                    ctx.arc(target.x + target.size * 0.3, target.y - target.size * 0.2, target.size * 0.25, 0, Math.PI * 2);
+                    ctx.arc(target.x, target.y, target.size, 0, Math.PI * 2);
                     ctx.fill();
 
                     // Draw slash lines
