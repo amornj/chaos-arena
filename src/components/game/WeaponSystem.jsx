@@ -744,6 +744,19 @@ export const WEAPONS = {
         superRare: true,
         desc: 'Uh oh...'
     },
+    katana: {
+        name: 'Katana',
+        damage: 5,
+        fireRate: 0.4,
+        melee: true,
+        range: 110,
+        swingArc: Math.PI * 0.7,
+        color: '#ff4466',
+        knockback: 8,
+        cleave: true,
+        samuraiExclusive: true, // Cannot be bought in shop
+        desc: 'The way of the warrior'
+    },
     bare_hands: {
         name: 'Bare Hands',
         damage: 6,

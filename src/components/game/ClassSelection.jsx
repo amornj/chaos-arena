@@ -369,6 +369,23 @@ const CLASSES = [
         ],
         ability: { name: 'SHADOW WALK', desc: 'Enter stealth for 5s, next hit crits', cooldown: 12, type: 'active' }
     },
+    {
+        id: 'samurai',
+        name: 'SAMURAI',
+        category: 'ASSASSIN',
+        symbol: 'SAM',
+        bgColor: 'bg-rose-700',
+        accentColor: 'text-rose-400',
+        borderColor: 'border-rose-500',
+        desc: 'Way of the blade',
+        stats: { health: 110, damage: 22, speed: 5.5, fireRate: 120, weapon: 'katana' },
+        passives: [
+            { text: 'Exclusive Katana weapon', positive: true },
+            { text: '+50% Melee range', positive: true },
+            { text: 'Cannot use guns', positive: false },
+        ],
+        ability: { name: 'IAI STRIKE', desc: 'Cinematic execution on strongest enemy', cooldown: 25, type: 'active' }
+    },
 
     // ===== SUPPORT/UTILITY CLASSES =====
     {

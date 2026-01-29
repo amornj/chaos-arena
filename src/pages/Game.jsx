@@ -905,7 +905,11 @@ export default function Game() {
 
         // Add weapon upgrades after wave 2
         if (wave >= 2) {
-            const weaponKeys = Object.keys(WEAPONS).filter(w => w !== gs?.player?.currentWeapon);
+            // Filter out current weapon, exclusive weapons, and super rare weapons
+            const weaponKeys = Object.keys(WEAPONS).filter(w => {
+                const weapon = WEAPONS[w];
+                return w !== gs?.player?.currentWeapon && !weapon.samuraiExclusive && !weapon.superRare;
+            });
             weaponKeys.forEach(key => {
                 const weaponUpgrade = createWeaponUpgrade(key);
                 // Assign rarity based on weapon power
@@ -1618,6 +1622,171 @@ export default function Game() {
 
                     gs.orbitalStrikes.splice(i, 1);
                 }
+            }
+        }
+
+        // Process Iai Strike (Samurai ability)
+        if (gs.iaiStrike && gs.iaiStrike.active) {
+            const iai = gs.iaiStrike;
+            const elapsed = now - iai.startTime;
+            const target = iai.target;
+
+            // Check if target still exists and is alive
+            if (!target || target.health <= 0 || !enemies.includes(target)) {
+                // Enemy died - shatter effect
+                iai.phase = 'shatter';
+                if (!iai.shatterTime) {
+                    iai.shatterTime = now;
+                    // Create glass shatter particles
+                    for (let i = 0; i < 50; i++) {
+                        const angle = Math.random() * Math.PI * 2;
+                        const speed = 5 + Math.random() * 15;
+                        particles.push({
+                            x: target.x,
+                            y: target.y,
+                            vx: Math.cos(angle) * speed,
+                            vy: Math.sin(angle) * speed,
+                            life: 60,
+                            maxLife: 60,
+                            color: '#ffffff',
+                            size: 3 + Math.random() * 8,
+                            type: 'glass'
+                        });
+                    }
+                    sfxRef.current?.explosion();
+                    triggerScreenShake(1.0);
+                }
+
+                // Pause for 1 second then end
+                if (now - iai.shatterTime > 1000) {
+                    gs.iaiStrike = null;
+                }
+            } else {
+                // Iai Strike phases
+                if (iai.phase === 'whiteout') {
+                    // White screen for 1 second
+                    if (elapsed > 1000) {
+                        iai.phase = 'slashing';
+                        iai.slashStartTime = now;
+                    }
+                } else if (iai.phase === 'slashing' || iai.phase === 'execution') {
+                    const slashElapsed = now - iai.slashStartTime;
+
+                    // After 8 seconds, switch to execution mode
+                    if (slashElapsed > 8000 && iai.phase === 'slashing') {
+                        iai.phase = 'execution';
+                        sfxRef.current?.powerup();
+                    }
+
+                    // Spawn slash every 100ms
+                    if (now - iai.lastSlash > 100) {
+                        iai.lastSlash = now;
+                        iai.slashCount++;
+
+                        // Create slash line
+                        const slashAngle = Math.random() * Math.PI * 2;
+                        const slashLength = target.size * 3;
+                        iai.slashLines.push({
+                            x: target.x,
+                            y: target.y,
+                            angle: slashAngle,
+                            length: slashLength,
+                            life: 0.3, // 0.3 seconds fade
+                            maxLife: 0.3,
+                            color: iai.phase === 'execution' ? '#ff0000' : '#ffffff'
+                        });
+
+                        // Deal damage
+                        const damage = iai.phase === 'execution' ? 9999 : 20;
+                        target.health -= damage;
+                        target.hitFlash = 5;
+                        createDamageNumber(target.x, target.y - target.size, damage, iai.phase === 'execution');
+
+                        // Crossfire damage to other enemies
+                        enemies.forEach(e => {
+                            if (e !== target) {
+                                const dist = Math.hypot(e.x - target.x, e.y - target.y);
+                                if (dist < 150) {
+                                    const crossfireDmg = damage * 0.3;
+                                    e.health -= crossfireDmg;
+                                    e.hitFlash = 3;
+                                    createDamageNumber(e.x, e.y - e.size, Math.round(crossfireDmg), false);
+                                }
+                            }
+                        });
+
+                        sfxRef.current?.meleeHit();
+                    }
+
+                    // Update slash lines
+                    iai.slashLines = iai.slashLines.filter(slash => {
+                        slash.life -= 0.016; // ~60fps
+                        return slash.life > 0;
+                    });
+                }
+
+                // Keep target frozen
+                target.frozen = true;
+                target.frozenUntil = now + 1000;
+            }
+        }
+
+        // Draw Iai Strike effects
+        if (gs.iaiStrike && gs.iaiStrike.active) {
+            const iai = gs.iaiStrike;
+            const target = iai.target;
+
+            if (iai.phase === 'whiteout') {
+                // White screen with player as black dots
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // Draw player as two black dots (eyes)
+                ctx.fillStyle = '#000000';
+                ctx.beginPath();
+                ctx.arc(player.x - 8, player.y - 5, 4, 0, Math.PI * 2);
+                ctx.arc(player.x + 8, player.y - 5, 4, 0, Math.PI * 2);
+                ctx.fill();
+            } else if ((iai.phase === 'slashing' || iai.phase === 'execution') && target) {
+                // Semi-white screen
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // Draw player as black dots
+                ctx.fillStyle = '#000000';
+                ctx.beginPath();
+                ctx.arc(player.x - 8, player.y - 5, 4, 0, Math.PI * 2);
+                ctx.arc(player.x + 8, player.y - 5, 4, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Draw target (darker silhouette)
+                ctx.fillStyle = '#333333';
+                ctx.beginPath();
+                ctx.arc(target.x, target.y, target.size, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Draw slash lines
+                iai.slashLines.forEach(slash => {
+                    const alpha = slash.life / slash.maxLife;
+                    ctx.strokeStyle = slash.color;
+                    ctx.globalAlpha = alpha;
+                    ctx.lineWidth = 3 + (1 - alpha) * 5;
+                    ctx.beginPath();
+                    ctx.moveTo(
+                        slash.x + Math.cos(slash.angle) * slash.length,
+                        slash.y + Math.sin(slash.angle) * slash.length
+                    );
+                    ctx.lineTo(
+                        slash.x - Math.cos(slash.angle) * slash.length,
+                        slash.y - Math.sin(slash.angle) * slash.length
+                    );
+                    ctx.stroke();
+                    ctx.globalAlpha = 1;
+                });
+            } else if (iai.phase === 'shatter') {
+                // Pause effect - slightly darkened screen
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
             }
         }
 
@@ -5787,6 +5956,38 @@ export default function Game() {
                                 });
                                 sfxRef.current?.dash();
                                 createParticles(player.x, player.y, '#666666', 40, 15);
+                                break;
+
+                            case 'samurai':
+                                // Iai Strike - Cinematic execution on strongest enemy
+                                let strongestEnemy = null;
+                                let highestHP = 0;
+                                gs.enemies.forEach(en => {
+                                    if (en.health > highestHP) {
+                                        strongestEnemy = en;
+                                        highestHP = en.health;
+                                    }
+                                });
+
+                                if (strongestEnemy) {
+                                    // Start the Iai Strike sequence
+                                    gs.iaiStrike = {
+                                        active: true,
+                                        target: strongestEnemy,
+                                        startTime: now,
+                                        phase: 'whiteout', // whiteout -> slashing -> execution -> shatter
+                                        slashCount: 0,
+                                        lastSlash: now,
+                                        totalDamage: 0,
+                                        slashLines: [] // Store slash effects
+                                    };
+                                    // Freeze the target
+                                    strongestEnemy.frozen = true;
+                                    strongestEnemy.frozenUntil = now + 60000; // Long freeze during ability
+                                    // Flash effect
+                                    createScreenFlash('#ffffff', 0.8);
+                                    sfxRef.current?.criticalHit();
+                                }
                                 break;
 
                             case 'vampire':
