@@ -1625,7 +1625,7 @@ export default function Game() {
             }
         }
 
-        // Process Iai Strike (Samurai ability)
+        // Process Iai Strike (Samurai ability) - GAME PAUSES DURING THIS
         if (gs.iaiStrike && gs.iaiStrike.active) {
             const iai = gs.iaiStrike;
             const elapsed = now - iai.startTime;
@@ -1637,30 +1637,61 @@ export default function Game() {
                 iai.phase = 'shatter';
                 if (!iai.shatterTime) {
                     iai.shatterTime = now;
-                    // Create glass shatter particles
-                    for (let i = 0; i < 50; i++) {
+                    // Create glass shatter particles (black shards on white)
+                    for (let i = 0; i < 80; i++) {
                         const angle = Math.random() * Math.PI * 2;
-                        const speed = 5 + Math.random() * 15;
+                        const speed = 5 + Math.random() * 20;
                         particles.push({
                             x: target.x,
                             y: target.y,
                             vx: Math.cos(angle) * speed,
                             vy: Math.sin(angle) * speed,
-                            life: 60,
-                            maxLife: 60,
-                            color: '#ffffff',
-                            size: 3 + Math.random() * 8,
+                            life: 90,
+                            maxLife: 90,
+                            color: '#000000',
+                            size: 2 + Math.random() * 10,
                             type: 'glass'
                         });
                     }
-                    sfxRef.current?.explosion();
-                    triggerScreenShake(1.0);
+                    // Sword sheathe sound
+                    sfxRef.current?.meleeHeavy();
+                    triggerScreenShake(1.2);
                 }
 
                 // Pause for 1 second then end
                 if (now - iai.shatterTime > 1000) {
                     gs.iaiStrike = null;
                 }
+
+                // Draw shatter phase
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // Draw player as black dots during shatter
+                ctx.fillStyle = '#000000';
+                ctx.beginPath();
+                ctx.arc(player.x - 8, player.y - 5, 5, 0, Math.PI * 2);
+                ctx.arc(player.x + 8, player.y - 5, 5, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Draw shatter particles
+                particles.forEach(p => {
+                    if (p.type === 'glass') {
+                        ctx.fillStyle = p.color;
+                        ctx.globalAlpha = p.life / p.maxLife;
+                        ctx.fillRect(p.x - p.size/2, p.y - p.size/2, p.size, p.size * 0.3);
+                        ctx.globalAlpha = 1;
+                        p.x += p.vx;
+                        p.y += p.vy;
+                        p.vy += 0.3; // gravity
+                        p.life--;
+                    }
+                });
+
+                // Skip rest of game loop during Iai Strike
+                ctx.restore();
+                animationRef.current = requestAnimationFrame(gameLoop);
+                return;
             } else {
                 // Iai Strike phases
                 if (iai.phase === 'whiteout') {
@@ -1669,124 +1700,131 @@ export default function Game() {
                         iai.phase = 'slashing';
                         iai.slashStartTime = now;
                     }
+
+                    // Draw whiteout
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                    // Draw player as black dots
+                    ctx.fillStyle = '#000000';
+                    ctx.beginPath();
+                    ctx.arc(player.x - 8, player.y - 5, 5, 0, Math.PI * 2);
+                    ctx.arc(player.x + 8, player.y - 5, 5, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Draw target as black dots too
+                    ctx.beginPath();
+                    ctx.arc(target.x - target.size * 0.3, target.y - target.size * 0.2, target.size * 0.2, 0, Math.PI * 2);
+                    ctx.arc(target.x + target.size * 0.3, target.y - target.size * 0.2, target.size * 0.2, 0, Math.PI * 2);
+                    ctx.fill();
+
                 } else if (iai.phase === 'slashing' || iai.phase === 'execution') {
                     const slashElapsed = now - iai.slashStartTime;
 
                     // After 8 seconds, switch to execution mode
                     if (slashElapsed > 8000 && iai.phase === 'slashing') {
                         iai.phase = 'execution';
-                        sfxRef.current?.powerup();
+                        sfxRef.current?.criticalHit();
                     }
 
-                    // Spawn slash every 100ms
-                    if (now - iai.lastSlash > 100) {
+                    // Spawn slash every 70ms (faster!)
+                    if (now - iai.lastSlash > 70) {
                         iai.lastSlash = now;
                         iai.slashCount++;
 
                         // Create slash line
                         const slashAngle = Math.random() * Math.PI * 2;
-                        const slashLength = target.size * 3;
+                        const slashLength = target.size * 4;
                         iai.slashLines.push({
                             x: target.x,
                             y: target.y,
                             angle: slashAngle,
                             length: slashLength,
-                            life: 0.3, // 0.3 seconds fade
+                            life: 0.3,
                             maxLife: 0.3,
-                            color: iai.phase === 'execution' ? '#ff0000' : '#ffffff'
+                            color: iai.phase === 'execution' ? '#ff0000' : '#000000'
                         });
 
                         // Deal damage
                         const damage = iai.phase === 'execution' ? 9999 : 20;
                         target.health -= damage;
-                        target.hitFlash = 5;
-                        createDamageNumber(target.x, target.y - target.size, damage, iai.phase === 'execution');
 
-                        // Crossfire damage to other enemies
+                        // Crossfire damage to other enemies (applied even though not visible)
                         enemies.forEach(e => {
                             if (e !== target) {
                                 const dist = Math.hypot(e.x - target.x, e.y - target.y);
                                 if (dist < 150) {
-                                    const crossfireDmg = damage * 0.3;
-                                    e.health -= crossfireDmg;
-                                    e.hitFlash = 3;
-                                    createDamageNumber(e.x, e.y - e.size, Math.round(crossfireDmg), false);
+                                    e.health -= damage * 0.3;
                                 }
                             }
                         });
 
-                        sfxRef.current?.meleeHit();
+                        // Sword slash sound - alternate between two sounds
+                        if (iai.slashCount % 2 === 0) {
+                            sfxRef.current?.meleeSwing();
+                        } else {
+                            sfxRef.current?.meleeHit();
+                        }
+
+                        // Small screen shake per slash
+                        triggerScreenShake(0.15);
                     }
 
                     // Update slash lines
                     iai.slashLines = iai.slashLines.filter(slash => {
-                        slash.life -= 0.016; // ~60fps
+                        slash.life -= 0.016;
                         return slash.life > 0;
                     });
+
+                    // Draw slashing phase - pure white background
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                    // Draw player as black dots
+                    ctx.fillStyle = '#000000';
+                    ctx.beginPath();
+                    ctx.arc(player.x - 8, player.y - 5, 5, 0, Math.PI * 2);
+                    ctx.arc(player.x + 8, player.y - 5, 5, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Draw target as black dots
+                    ctx.beginPath();
+                    ctx.arc(target.x - target.size * 0.3, target.y - target.size * 0.2, target.size * 0.25, 0, Math.PI * 2);
+                    ctx.arc(target.x + target.size * 0.3, target.y - target.size * 0.2, target.size * 0.25, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Draw slash lines
+                    iai.slashLines.forEach(slash => {
+                        const alpha = slash.life / slash.maxLife;
+                        ctx.strokeStyle = slash.color;
+                        ctx.globalAlpha = alpha;
+                        ctx.lineWidth = 2 + (1 - alpha) * 6;
+                        ctx.beginPath();
+                        ctx.moveTo(
+                            slash.x + Math.cos(slash.angle) * slash.length,
+                            slash.y + Math.sin(slash.angle) * slash.length
+                        );
+                        ctx.lineTo(
+                            slash.x - Math.cos(slash.angle) * slash.length,
+                            slash.y - Math.sin(slash.angle) * slash.length
+                        );
+                        ctx.stroke();
+                        ctx.globalAlpha = 1;
+                    });
+
+                    // Draw damage numbers on white background
+                    if (iai.slashCount > 0 && now - iai.lastSlash < 50) {
+                        const damage = iai.phase === 'execution' ? 9999 : 20;
+                        ctx.fillStyle = iai.phase === 'execution' ? '#ff0000' : '#333333';
+                        ctx.font = iai.phase === 'execution' ? 'bold 32px monospace' : 'bold 18px monospace';
+                        ctx.fillText(damage.toString(), target.x + (Math.random() - 0.5) * 40, target.y - target.size - 20);
+                    }
                 }
 
-                // Keep target frozen
-                target.frozen = true;
-                target.frozenUntil = now + 1000;
-            }
-        }
-
-        // Draw Iai Strike effects
-        if (gs.iaiStrike && gs.iaiStrike.active) {
-            const iai = gs.iaiStrike;
-            const target = iai.target;
-
-            if (iai.phase === 'whiteout') {
-                // White screen with player as black dots
-                ctx.fillStyle = '#ffffff';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-                // Draw player as two black dots (eyes)
-                ctx.fillStyle = '#000000';
-                ctx.beginPath();
-                ctx.arc(player.x - 8, player.y - 5, 4, 0, Math.PI * 2);
-                ctx.arc(player.x + 8, player.y - 5, 4, 0, Math.PI * 2);
-                ctx.fill();
-            } else if ((iai.phase === 'slashing' || iai.phase === 'execution') && target) {
-                // Semi-white screen
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-                // Draw player as black dots
-                ctx.fillStyle = '#000000';
-                ctx.beginPath();
-                ctx.arc(player.x - 8, player.y - 5, 4, 0, Math.PI * 2);
-                ctx.arc(player.x + 8, player.y - 5, 4, 0, Math.PI * 2);
-                ctx.fill();
-
-                // Draw target (darker silhouette)
-                ctx.fillStyle = '#333333';
-                ctx.beginPath();
-                ctx.arc(target.x, target.y, target.size, 0, Math.PI * 2);
-                ctx.fill();
-
-                // Draw slash lines
-                iai.slashLines.forEach(slash => {
-                    const alpha = slash.life / slash.maxLife;
-                    ctx.strokeStyle = slash.color;
-                    ctx.globalAlpha = alpha;
-                    ctx.lineWidth = 3 + (1 - alpha) * 5;
-                    ctx.beginPath();
-                    ctx.moveTo(
-                        slash.x + Math.cos(slash.angle) * slash.length,
-                        slash.y + Math.sin(slash.angle) * slash.length
-                    );
-                    ctx.lineTo(
-                        slash.x - Math.cos(slash.angle) * slash.length,
-                        slash.y - Math.sin(slash.angle) * slash.length
-                    );
-                    ctx.stroke();
-                    ctx.globalAlpha = 1;
-                });
-            } else if (iai.phase === 'shatter') {
-                // Pause effect - slightly darkened screen
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                // Skip rest of game loop during Iai Strike - game is paused
+                ctx.restore();
+                animationRef.current = requestAnimationFrame(gameLoop);
+                return;
             }
         }
 
