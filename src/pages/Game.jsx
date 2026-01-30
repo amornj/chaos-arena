@@ -1633,33 +1633,105 @@ export default function Game() {
 
             // Check if target still exists and is alive
             if (!target || target.health <= 0 || !enemies.includes(target)) {
-                // Enemy died - shatter effect
+                // Enemy died - glass shatter effect (split down the middle)
                 iai.phase = 'shatter';
                 if (!iai.shatterTime) {
                     iai.shatterTime = now;
-                    // Create glass shatter particles (black shards on white)
-                    for (let i = 0; i < 80; i++) {
+                    iai.shatterPieces = [];
+
+                    // === GLASS SHATTER ENGINE ===
+                    // Generate random points for Voronoi-like tessellation
+                    const radius = target.size;
+                    const centerX = target.x;
+                    const centerY = target.y;
+
+                    // Generate seed points for shatter - more points = more pieces
+                    const numSeeds = 15 + Math.floor(Math.random() * 10); // 15-25 pieces
+                    const seeds = [];
+
+                    // Add center point
+                    seeds.push({ x: 0, y: 0 });
+
+                    // Add points along the vertical split line (the final strike)
+                    for (let i = 0; i < 5; i++) {
+                        const y = (i - 2) * (radius * 0.4);
+                        seeds.push({ x: -2 + Math.random() * 4, y });
+                        seeds.push({ x: -2 + Math.random() * 4, y });
+                    }
+
+                    // Add random points throughout the circle
+                    for (let i = seeds.length; i < numSeeds; i++) {
                         const angle = Math.random() * Math.PI * 2;
-                        const speed = 5 + Math.random() * 20;
+                        const dist = Math.random() * radius * 0.9;
+                        seeds.push({
+                            x: Math.cos(angle) * dist,
+                            y: Math.sin(angle) * dist
+                        });
+                    }
+
+                    // For each seed, create a glass shard polygon
+                    seeds.forEach((seed, idx) => {
+                        // Create irregular polygon vertices around this seed
+                        const shardVertices = [];
+                        const numVerts = 3 + Math.floor(Math.random() * 4); // 3-6 vertices
+                        const shardSize = (radius * 0.15) + Math.random() * (radius * 0.35);
+
+                        for (let v = 0; v < numVerts; v++) {
+                            const vertAngle = (v / numVerts) * Math.PI * 2 + Math.random() * 0.5;
+                            const vertDist = shardSize * (0.5 + Math.random() * 0.5);
+                            shardVertices.push({
+                                x: Math.cos(vertAngle) * vertDist,
+                                y: Math.sin(vertAngle) * vertDist
+                            });
+                        }
+
+                        // Calculate velocity - pieces fly outward from center split
+                        const distFromCenter = Math.hypot(seed.x, seed.y);
+                        const angleFromCenter = Math.atan2(seed.y, seed.x);
+
+                        // Pieces on left go left, pieces on right go right (split effect)
+                        const splitForce = seed.x < 0 ? -1 : 1;
+                        const baseSpeed = 4 + Math.random() * 8;
+                        const outwardSpeed = 2 + (distFromCenter / radius) * 6;
+
+                        iai.shatterPieces.push({
+                            x: centerX + seed.x,
+                            y: centerY + seed.y,
+                            vx: splitForce * baseSpeed + Math.cos(angleFromCenter) * outwardSpeed,
+                            vy: -3 - Math.random() * 5 + Math.sin(angleFromCenter) * outwardSpeed * 0.5,
+                            rotation: Math.random() * Math.PI * 2,
+                            rotationSpeed: (Math.random() - 0.5) * 0.25,
+                            vertices: shardVertices,
+                            size: shardSize,
+                            alpha: 1
+                        });
+                    });
+
+                    // Add small debris particles for extra effect
+                    for (let i = 0; i < 60; i++) {
+                        const angle = Math.random() * Math.PI * 2;
+                        const dist = Math.random() * radius;
+                        const side = Math.random() > 0.5 ? 1 : -1;
                         particles.push({
-                            x: target.x,
-                            y: target.y,
-                            vx: Math.cos(angle) * speed,
-                            vy: Math.sin(angle) * speed,
+                            x: centerX + Math.cos(angle) * dist,
+                            y: centerY + Math.sin(angle) * dist,
+                            vx: side * (3 + Math.random() * 10),
+                            vy: -2 - Math.random() * 6,
                             life: 90,
                             maxLife: 90,
                             color: '#000000',
-                            size: 2 + Math.random() * 10,
-                            type: 'glass'
+                            size: 1 + Math.random() * 4,
+                            type: 'glass_debris'
                         });
                     }
+
                     // Sword sheathe sound
                     sfxRef.current?.meleeHeavy();
-                    triggerScreenShake(1.2);
+                    triggerScreenShake(1.8);
                 }
 
-                // Pause for 1 second then end
-                if (now - iai.shatterTime > 1000) {
+                // Pause for 1.5 seconds then end
+                if (now - iai.shatterTime > 1500) {
                     gs.iaiStrike = null;
                 }
 
@@ -1673,16 +1745,67 @@ export default function Game() {
                 ctx.arc(player.x, player.y, PLAYER_SIZE, 0, Math.PI * 2);
                 ctx.fill();
 
-                // Draw shatter particles
+                // Draw glass shard pieces flying apart
+                if (iai.shatterPieces) {
+                    const shatterElapsed = now - iai.shatterTime;
+
+                    iai.shatterPieces.forEach(piece => {
+                        // Update physics
+                        piece.x += piece.vx;
+                        piece.y += piece.vy;
+                        piece.vy += 0.5; // gravity
+                        piece.vx *= 0.99; // air resistance
+                        piece.rotation += piece.rotationSpeed;
+
+                        // Fade out over time
+                        piece.alpha = Math.max(0, 1 - shatterElapsed / 1400);
+
+                        if (piece.alpha <= 0) return;
+
+                        ctx.save();
+                        ctx.translate(piece.x, piece.y);
+                        ctx.rotate(piece.rotation);
+
+                        // Draw the polygon glass shard
+                        ctx.fillStyle = '#000000';
+                        ctx.globalAlpha = piece.alpha;
+
+                        if (piece.vertices && piece.vertices.length >= 3) {
+                            ctx.beginPath();
+                            ctx.moveTo(piece.vertices[0].x, piece.vertices[0].y);
+                            for (let v = 1; v < piece.vertices.length; v++) {
+                                ctx.lineTo(piece.vertices[v].x, piece.vertices[v].y);
+                            }
+                            ctx.closePath();
+                            ctx.fill();
+
+                            // Draw subtle edge highlight for glass effect
+                            ctx.strokeStyle = '#333333';
+                            ctx.lineWidth = 1;
+                            ctx.globalAlpha = piece.alpha * 0.5;
+                            ctx.stroke();
+                        }
+
+                        ctx.restore();
+                        ctx.globalAlpha = 1;
+                    });
+
+                    // Remove fully faded pieces
+                    iai.shatterPieces = iai.shatterPieces.filter(p => p.alpha > 0);
+                }
+
+                // Draw small debris particles
                 particles.forEach(p => {
-                    if (p.type === 'glass') {
+                    if (p.type === 'glass_debris') {
                         ctx.fillStyle = p.color;
                         ctx.globalAlpha = p.life / p.maxLife;
-                        ctx.fillRect(p.x - p.size/2, p.y - p.size/2, p.size, p.size * 0.3);
+                        ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size * 0.4);
                         ctx.globalAlpha = 1;
+
                         p.x += p.vx;
                         p.y += p.vy;
-                        p.vy += 0.3; // gravity
+                        p.vy += 0.4; // gravity
+                        p.vx *= 0.98; // air resistance
                         p.life--;
                     }
                 });
@@ -1721,6 +1844,7 @@ export default function Game() {
                     // After 8 seconds, switch to execution mode
                     if (slashElapsed > 8000 && iai.phase === 'slashing') {
                         iai.phase = 'execution';
+                        iai.executionStartTime = now;
                         sfxRef.current?.criticalHit();
                     }
 
@@ -1729,17 +1853,19 @@ export default function Game() {
                         iai.lastSlash = now;
                         iai.slashCount++;
 
-                        // Create slash line
-                        const slashAngle = Math.random() * Math.PI * 2;
-                        const slashLength = target.size * 4;
+                        // Create slash line - FINAL STRIKE is always vertical (down the middle)
+                        // In execution phase, only one slash that's vertical
+                        const slashAngle = iai.phase === 'execution' ? Math.PI / 2 : Math.random() * Math.PI * 2;
+                        const slashLength = iai.phase === 'execution' ? target.size * 6 : target.size * 4;
                         iai.slashLines.push({
                             x: target.x,
                             y: target.y,
                             angle: slashAngle,
                             length: slashLength,
-                            life: 0.3,
-                            maxLife: 0.3,
-                            color: iai.phase === 'execution' ? '#ff0000' : '#000000'
+                            life: iai.phase === 'execution' ? 0.8 : 0.3,
+                            maxLife: iai.phase === 'execution' ? 0.8 : 0.3,
+                            color: iai.phase === 'execution' ? '#ff0000' : '#000000',
+                            isFinalStrike: iai.phase === 'execution'
                         });
 
                         // Deal damage
@@ -1793,7 +1919,17 @@ export default function Game() {
                         const alpha = slash.life / slash.maxLife;
                         ctx.strokeStyle = slash.color;
                         ctx.globalAlpha = alpha;
-                        ctx.lineWidth = 2 + (1 - alpha) * 6;
+
+                        // Final strike is much thicker and more dramatic
+                        if (slash.isFinalStrike) {
+                            ctx.lineWidth = 8 + (1 - alpha) * 12;
+                            // Draw glow effect for final strike
+                            ctx.shadowColor = '#ff0000';
+                            ctx.shadowBlur = 20;
+                        } else {
+                            ctx.lineWidth = 2 + (1 - alpha) * 6;
+                        }
+
                         ctx.beginPath();
                         ctx.moveTo(
                             slash.x + Math.cos(slash.angle) * slash.length,
@@ -1804,6 +1940,7 @@ export default function Game() {
                             slash.y - Math.sin(slash.angle) * slash.length
                         );
                         ctx.stroke();
+                        ctx.shadowBlur = 0;
                         ctx.globalAlpha = 1;
                     });
 
