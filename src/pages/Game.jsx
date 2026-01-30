@@ -1640,87 +1640,118 @@ export default function Game() {
                     iai.shatterPieces = [];
 
                     // === GLASS SHATTER ENGINE ===
-                    // Generate random points for Voronoi-like tessellation
+                    // Create 7-8 BIG irregular glass shards that look like broken glass
                     const radius = target.size;
                     const centerX = target.x;
                     const centerY = target.y;
+                    const numShards = 7 + Math.floor(Math.random() * 2); // 7-8 big pieces
 
-                    // Generate seed points for shatter - more points = more pieces
-                    const numSeeds = 15 + Math.floor(Math.random() * 10); // 15-25 pieces
-                    const seeds = [];
+                    // Generate random crack lines from center outward
+                    const crackAngles = [];
+                    // First crack is always vertical (the killing blow)
+                    crackAngles.push(-Math.PI / 2); // top
+                    crackAngles.push(Math.PI / 2);  // bottom
 
-                    // Add center point
-                    seeds.push({ x: 0, y: 0 });
-
-                    // Add points along the vertical split line (the final strike)
-                    for (let i = 0; i < 5; i++) {
-                        const y = (i - 2) * (radius * 0.4);
-                        seeds.push({ x: -2 + Math.random() * 4, y });
-                        seeds.push({ x: -2 + Math.random() * 4, y });
+                    // Add more random crack angles
+                    for (let i = 0; i < numShards - 1; i++) {
+                        crackAngles.push(Math.random() * Math.PI * 2);
                     }
+                    // Sort angles so we can create shards between them
+                    crackAngles.sort((a, b) => a - b);
 
-                    // Add random points throughout the circle
-                    for (let i = seeds.length; i < numSeeds; i++) {
-                        const angle = Math.random() * Math.PI * 2;
-                        const dist = Math.random() * radius * 0.9;
-                        seeds.push({
-                            x: Math.cos(angle) * dist,
-                            y: Math.sin(angle) * dist
-                        });
-                    }
+                    // Create a shard for each segment between cracks
+                    for (let i = 0; i < crackAngles.length; i++) {
+                        const angle1 = crackAngles[i];
+                        const angle2 = crackAngles[(i + 1) % crackAngles.length];
 
-                    // For each seed, create a glass shard polygon
-                    seeds.forEach((seed, idx) => {
-                        // Create irregular polygon vertices around this seed
+                        // Handle wrap-around
+                        let angleDiff = angle2 - angle1;
+                        if (angleDiff < 0) angleDiff += Math.PI * 2;
+
+                        // Skip tiny slivers
+                        if (angleDiff < 0.3) continue;
+
+                        // Build irregular polygon for this shard
                         const shardVertices = [];
-                        const numVerts = 3 + Math.floor(Math.random() * 4); // 3-6 vertices
-                        const shardSize = (radius * 0.15) + Math.random() * (radius * 0.35);
 
-                        for (let v = 0; v < numVerts; v++) {
-                            const vertAngle = (v / numVerts) * Math.PI * 2 + Math.random() * 0.5;
-                            const vertDist = shardSize * (0.5 + Math.random() * 0.5);
+                        // Start near center with some randomness
+                        const centerOffset = radius * (0.05 + Math.random() * 0.15);
+                        const centerAngle = angle1 + angleDiff / 2;
+                        shardVertices.push({
+                            x: Math.cos(centerAngle) * centerOffset + (Math.random() - 0.5) * radius * 0.1,
+                            y: Math.sin(centerAngle) * centerOffset + (Math.random() - 0.5) * radius * 0.1
+                        });
+
+                        // Add points along first crack edge (inner to outer)
+                        const edge1Points = 2 + Math.floor(Math.random() * 2);
+                        for (let j = 0; j < edge1Points; j++) {
+                            const t = (j + 1) / (edge1Points + 1);
+                            const dist = radius * (0.2 + t * 0.8) + (Math.random() - 0.5) * radius * 0.2;
+                            const jitter = (Math.random() - 0.5) * 0.15;
                             shardVertices.push({
-                                x: Math.cos(vertAngle) * vertDist,
-                                y: Math.sin(vertAngle) * vertDist
+                                x: Math.cos(angle1 + jitter) * dist,
+                                y: Math.sin(angle1 + jitter) * dist
                             });
                         }
 
-                        // Calculate velocity - pieces fly outward from center split
-                        const distFromCenter = Math.hypot(seed.x, seed.y);
-                        const angleFromCenter = Math.atan2(seed.y, seed.x);
+                        // Add points along outer arc
+                        const arcPoints = 2 + Math.floor(Math.random() * 3);
+                        for (let j = 0; j <= arcPoints; j++) {
+                            const t = j / arcPoints;
+                            const arcAngle = angle1 + angleDiff * t;
+                            const dist = radius * (0.9 + Math.random() * 0.15);
+                            shardVertices.push({
+                                x: Math.cos(arcAngle) * dist + (Math.random() - 0.5) * radius * 0.1,
+                                y: Math.sin(arcAngle) * dist + (Math.random() - 0.5) * radius * 0.1
+                            });
+                        }
 
-                        // Pieces on left go left, pieces on right go right (split effect)
-                        const splitForce = seed.x < 0 ? -1 : 1;
-                        const baseSpeed = 4 + Math.random() * 8;
-                        const outwardSpeed = 2 + (distFromCenter / radius) * 6;
+                        // Add points along second crack edge (outer to inner)
+                        const edge2Points = 2 + Math.floor(Math.random() * 2);
+                        for (let j = edge2Points - 1; j >= 0; j--) {
+                            const t = (j + 1) / (edge2Points + 1);
+                            const dist = radius * (0.2 + t * 0.8) + (Math.random() - 0.5) * radius * 0.2;
+                            const jitter = (Math.random() - 0.5) * 0.15;
+                            shardVertices.push({
+                                x: Math.cos(angle2 + jitter) * dist,
+                                y: Math.sin(angle2 + jitter) * dist
+                            });
+                        }
+
+                        // Calculate center of shard for physics
+                        const shardCenterX = shardVertices.reduce((sum, v) => sum + v.x, 0) / shardVertices.length;
+                        const shardCenterY = shardVertices.reduce((sum, v) => sum + v.y, 0) / shardVertices.length;
+
+                        // Pieces split left/right from vertical cut
+                        const splitForce = shardCenterX < 0 ? -1 : 1;
+                        const outwardAngle = Math.atan2(shardCenterY, shardCenterX);
 
                         iai.shatterPieces.push({
-                            x: centerX + seed.x,
-                            y: centerY + seed.y,
-                            vx: splitForce * baseSpeed + Math.cos(angleFromCenter) * outwardSpeed,
-                            vy: -3 - Math.random() * 5 + Math.sin(angleFromCenter) * outwardSpeed * 0.5,
-                            rotation: Math.random() * Math.PI * 2,
-                            rotationSpeed: (Math.random() - 0.5) * 0.25,
+                            x: centerX,
+                            y: centerY,
+                            vx: splitForce * (6 + Math.random() * 5) + Math.cos(outwardAngle) * 2,
+                            vy: -1 - Math.random() * 3,
+                            rotation: 0,
+                            rotationSpeed: (Math.random() - 0.5) * 0.12,
                             vertices: shardVertices,
-                            size: shardSize,
                             alpha: 1
                         });
-                    });
+                    }
 
-                    // Add small debris particles for extra effect
-                    for (let i = 0; i < 60; i++) {
+                    // Small debris particles
+                    for (let i = 0; i < 25; i++) {
                         const angle = Math.random() * Math.PI * 2;
-                        const dist = Math.random() * radius;
+                        const dist = Math.random() * radius * 0.8;
                         const side = Math.random() > 0.5 ? 1 : -1;
                         particles.push({
                             x: centerX + Math.cos(angle) * dist,
                             y: centerY + Math.sin(angle) * dist,
-                            vx: side * (3 + Math.random() * 10),
-                            vy: -2 - Math.random() * 6,
-                            life: 90,
-                            maxLife: 90,
+                            vx: side * (2 + Math.random() * 6),
+                            vy: -1 - Math.random() * 3,
+                            life: 50,
+                            maxLife: 50,
                             color: '#000000',
-                            size: 1 + Math.random() * 4,
+                            size: 1 + Math.random() * 2,
                             type: 'glass_debris'
                         });
                     }
