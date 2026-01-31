@@ -2071,7 +2071,12 @@ export default function Game() {
         const isInvisible = now < player.invisibleUntil;
 
         // Auto-fire
-        const weaponFireRate = noWeaponCooldown ? 0 : player.fireRate * (WEAPONS[player.currentWeapon]?.fireRate || 1);
+        const currentWeaponData = WEAPONS[player.currentWeapon];
+        // Melee weapons use fireRate as seconds, ranged weapons use it as a multiplier
+        const weaponFireRate = noWeaponCooldown ? 0 :
+            currentWeaponData?.melee
+                ? (currentWeaponData.fireRate * 1000) // Melee: fireRate is in seconds, convert to ms
+                : player.fireRate * (currentWeaponData?.fireRate || 1); // Ranged: fireRate is a multiplier
         if (mouse.down && now - player.lastShot > weaponFireRate) {
             player.lastShot = now;
 
