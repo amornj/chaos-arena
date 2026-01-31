@@ -1,6 +1,63 @@
 import React from 'react';
 import { Heart, Shield, Skull, Zap } from 'lucide-react';
 
+// Enemy type display names and icons
+const ENEMY_DISPLAY = {
+    basic: { name: 'Basic', icon: '👤' },
+    runner: { name: 'Runner', icon: '💨' },
+    grunt: { name: 'Grunt', icon: '🛡️' },
+    crawler: { name: 'Crawler', icon: '🕷️' },
+    brute: { name: 'Brute', icon: '👊' },
+    heavy: { name: 'Heavy', icon: '🦾' },
+    charger: { name: 'Charger', icon: '🐂' },
+    juggernaut: { name: 'Juggernaut', icon: '🏋️' },
+    goliath: { name: 'Goliath', icon: '💚' },
+    ironclad: { name: 'Ironclad', icon: '🔩' },
+    titan_enemy: { name: 'Titan', icon: '🗿' },
+    demolisher: { name: 'Demolisher', icon: '💣' },
+    speeder: { name: 'Speeder', icon: '⚡' },
+    blitzer: { name: 'Blitzer', icon: '🔥' },
+    phantom: { name: 'Phantom', icon: '👻' },
+    striker: { name: 'Striker', icon: '🎯' },
+    dasher: { name: 'Dasher', icon: '💫' },
+    wraith: { name: 'Wraith', icon: '🌑' },
+    berserker_enemy: { name: 'Berserker', icon: '😤' },
+    bloater: { name: 'Bloater', icon: '🎈' },
+    nuke: { name: 'Nuke', icon: '☢️' },
+    cluster: { name: 'Cluster', icon: '🧨' },
+    volatile: { name: 'Volatile', icon: '⚠️' },
+    inferno: { name: 'Inferno', icon: '🔥' },
+    detonator: { name: 'Detonator', icon: '💥' },
+    megaton: { name: 'Megaton', icon: '🌋' },
+    apocalypse: { name: 'Apocalypse', icon: '☠️' },
+    spitter: { name: 'Spitter', icon: '💦' },
+    acid_spitter: { name: 'Acid Spitter', icon: '🧪' },
+    plasma_spitter: { name: 'Plasma Spitter', icon: '🔮' },
+    shambler: { name: 'Shambler', icon: '☁️' },
+    sniper: { name: 'Sniper', icon: '🎯' },
+    gunner: { name: 'Gunner', icon: '🔫' },
+    mortar: { name: 'Mortar', icon: '💣' },
+    siege: { name: 'Siege', icon: '🏰' },
+    boss_warlord: { name: 'Warlord', icon: '👑' },
+    boss_titan: { name: 'Titan Boss', icon: '🗿' },
+    boss_overlord: { name: 'Overlord', icon: '👁️' },
+    boss_destroyer: { name: 'Destroyer', icon: '💀' },
+    boss_spitter: { name: 'Acid King', icon: '🤮' },
+    boss_nuclear: { name: 'Nuclear Titan', icon: '☢️' },
+    boss_shambler: { name: 'Plague Lord', icon: '☠️' },
+    boss_swarm: { name: 'Swarm Queen', icon: '🐝' },
+    boss_phantom: { name: 'Void Walker', icon: '🌀' },
+    boss_inferno: { name: 'Inferno Lord', icon: '🔥' },
+    boss_sniper: { name: 'Deadeye', icon: '🎯' },
+    boss_juggernaut: { name: 'Juggernaut', icon: '🦏' },
+    boss_berserker: { name: 'Blood Rage', icon: '🩸' },
+    boss_summoner: { name: 'Dark Summoner', icon: '🧙' },
+    boss_lightning: { name: 'Storm Bringer', icon: '⛈️' },
+    boss_frost: { name: 'Frost Monarch', icon: '❄️' },
+    boss_executioner: { name: 'Executioner', icon: '⚔️' },
+    boss_hivemind: { name: 'Hivemind', icon: '🧠' },
+};
+
 // Ability definitions for display
 const ABILITY_KEYS = {
     hasDash: { name: 'Dash', key: 'X', icon: '💨' },
@@ -28,7 +85,7 @@ const ABILITY_KEYS = {
 
 export default function GameUI({
     health, maxHealth, wave, score, kills, combo, shield, weapon,
-    abilityReady, abilityName, abilityCooldown, playerAbilities
+    abilityReady, abilityName, abilityCooldown, playerAbilities, enemyCounts
 }) {
     const healthPercent = (health / maxHealth) * 100;
 
@@ -94,6 +151,43 @@ export default function GameUI({
                     </div>
                 </div>
             </div>
+
+            {/* Enemy Log Panel */}
+            {enemyCounts && Object.keys(enemyCounts).length > 0 && (
+                <div className="absolute top-28 left-4 bg-black/70 border border-red-500/50 p-3 min-w-[160px] max-w-[200px]">
+                    {/* Header */}
+                    <div className="flex items-center gap-2 mb-2 pb-2 border-b border-red-500/30">
+                        <Skull className="w-4 h-4 text-red-500" />
+                        <span className="text-xs font-bold text-red-500 uppercase tracking-wider">Enemies</span>
+                    </div>
+
+                    {/* Enemy List */}
+                    <div className="space-y-1 max-h-[200px] overflow-y-auto">
+                        {Object.entries(enemyCounts)
+                            .sort((a, b) => b[1] - a[1]) // Sort by count descending
+                            .map(([type, count]) => {
+                                const display = ENEMY_DISPLAY[type] || { name: type, icon: '👤' };
+                                return (
+                                    <div key={type} className="flex items-center justify-between text-xs">
+                                        <div className="flex items-center gap-1.5">
+                                            <span className="text-sm">{display.icon}</span>
+                                            <span className="text-gray-300">{display.name}</span>
+                                        </div>
+                                        <span className="text-red-400 font-bold">×{count}</span>
+                                    </div>
+                                );
+                            })}
+                    </div>
+
+                    {/* Total */}
+                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-red-500/30">
+                        <span className="text-xs text-gray-500 uppercase">Total</span>
+                        <span className="text-sm font-bold text-white">
+                            {Object.values(enemyCounts).reduce((sum, c) => sum + c, 0)}
+                        </span>
+                    </div>
+                </div>
+            )}
 
             {/* Bottom stats */}
             <div className="absolute bottom-4 left-4 right-4 flex justify-between items-end">

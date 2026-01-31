@@ -5684,7 +5684,13 @@ export default function Game() {
                 hasJackhammer: player.hasJackhammer,
                 hasDecoy: player.hasDecoy,
                 droneCount: player.droneCount || 0
-            }
+            },
+            // Count enemies by type for the enemy log
+            enemyCounts: enemies.reduce((acc, e) => {
+                const type = e.type || 'basic';
+                acc[type] = (acc[type] || 0) + 1;
+                return acc;
+            }, {})
         });
 
         if (!gameOver) {
