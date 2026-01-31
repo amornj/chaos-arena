@@ -56,6 +56,17 @@ const ENEMY_DISPLAY = {
     boss_frost: { name: 'Frost Monarch', icon: '❄️' },
     boss_executioner: { name: 'Executioner', icon: '⚔️' },
     boss_hivemind: { name: 'Hivemind', icon: '🧠' },
+    // New special enemies
+    tumor: { name: 'Tumor', icon: '🦠' },
+    combiner: { name: 'Combiner', icon: '🔗' },
+    toxin: { name: 'Toxin', icon: '☣️' },
+    cerberus: { name: 'Cerberus', icon: '🐕' },
+    corrosive: { name: 'Corrosive', icon: '🧫' },
+    duplicator: { name: 'Duplicator', icon: '🪞' },
+    parasite: { name: 'Parasite', icon: '🦟' },
+    sticky: { name: 'Sticky', icon: '🍯' },
+    sticker: { name: 'Sticker', icon: '🏷️' },
+    sticky_grenade: { name: 'Sticky Grenade', icon: '💣' },
 };
 
 // Ability definitions for display

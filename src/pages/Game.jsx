@@ -200,6 +200,13 @@ export default function Game() {
         if (wave >= 11) types.push('goliath', 'mortar', 'siege');
         if (wave >= 12) types.push('nuke', 'ironclad', 'titan_enemy');
         if (wave >= 15) types.push('megaton', 'apocalypse');
+        // New special enemies
+        if (wave >= 5) types.push('toxin', 'corrosive');
+        if (wave >= 6) types.push('duplicator', 'sticky');
+        if (wave >= 7) types.push('parasite', 'sticker');
+        if (wave >= 8) types.push('combiner', 'combiner', 'combiner'); // More combiners in later waves
+        if (wave >= 9) types.push('tumor', 'sticky_grenade');
+        if (wave >= 10) types.push('cerberus');
 
         // Boss variants based on wave number
         // Boss selection based on wave
@@ -284,7 +291,19 @@ export default function Game() {
             boss_lightning: { health: 320 * wave, speed: 2.0, damage: 12, size: 45, color: '#00ffff', points: 170 * wave, bossType: 'lightning', shoots: true, lightningAttack: true, chainLightning: true },
             boss_frost: { health: 400 * wave, speed: 1.3, damage: 14, size: 55, color: '#88ddff', points: 150 * wave, bossType: 'frost', shoots: true, freezeAttack: true, frostAura: true },
             boss_executioner: { health: 280 * wave, speed: 2.2, damage: 50, size: 52, color: '#880000', points: 190 * wave, bossType: 'executioner', charges: true, executeThreshold: 0.3 },
-            boss_hivemind: { health: 500 * wave, speed: 0.9, damage: 10, size: 60, color: '#ffaa00', points: 220 * wave, bossType: 'hivemind', spawnsMinions: true, spawnRate: 1500, controlsMinions: true }
+            boss_hivemind: { health: 500 * wave, speed: 0.9, damage: 10, size: 60, color: '#ffaa00', points: 220 * wave, bossType: 'hivemind', spawnsMinions: true, spawnRate: 1500, controlsMinions: true },
+
+            // === NEW SPECIAL VARIANTS ===
+            tumor: { health: 25, speed: 1.8, damage: 3, size: 16, color: '#990066', points: 15, isTumor: true, fusedCount: 0 },
+            combiner: { health: 20, speed: 2.2, damage: 4, size: 14, color: '#4488ff', points: 12, isCombiner: true, combineLevel: 1 },
+            toxin: { health: 30, speed: 1.4, damage: 5, size: 20, color: '#88ff88', points: 25, cloudShooter: true, tripleCloud: true },
+            cerberus: { health: 80, speed: 1.6, damage: 12, size: 28, color: '#888888', points: 50, lives: 3, maxLives: 3, isCerberus: true },
+            corrosive: { health: 28, speed: 1.5, damage: 6, size: 18, color: '#00ff66', points: 22, shoots: true, corrosiveShot: true },
+            duplicator: { health: 40, speed: 1.8, damage: 5, size: 18, color: '#ff88ff', points: 20, isDuplicator: true, splitCount: 0, maxSplits: 3 },
+            parasite: { health: 22, speed: 2.0, damage: 4, size: 15, color: '#884400', points: 18, shootsParasite: true },
+            sticky: { health: 30, speed: 1.3, damage: 3, size: 19, color: '#aaaa00', points: 20, shootsGlue: true },
+            sticker: { health: 18, speed: 2.8, damage: 2, size: 14, color: '#cccc44', points: 16, isSticker: true },
+            sticky_grenade: { health: 20, speed: 2.5, damage: 15, size: 16, color: '#dddd00', points: 25, isSticker: true, explodesWhenAttached: true }
         };
 
         const config = enemyConfigs[type];
@@ -341,7 +360,27 @@ export default function Game() {
             lastTrail: 0,
             lastRegen: 0,
             lastCharge: 0,
-            isCharging: false
+            isCharging: false,
+            // New special enemy properties
+            isTumor: config.isTumor,
+            fusedWith: [], // Array of fused enemies for tumor
+            fusedCount: config.fusedCount || 0,
+            isCombiner: config.isCombiner,
+            combineLevel: config.combineLevel || 1,
+            tripleCloud: config.tripleCloud,
+            isCerberus: config.isCerberus,
+            lives: config.lives,
+            maxLives: config.maxLives,
+            corrosiveShot: config.corrosiveShot,
+            isDuplicator: config.isDuplicator,
+            splitCount: config.splitCount || 0,
+            maxSplits: config.maxSplits,
+            shootsParasite: config.shootsParasite,
+            shootsGlue: config.shootsGlue,
+            isSticker: config.isSticker,
+            explodesWhenAttached: config.explodesWhenAttached,
+            attachedToPlayer: false,
+            attachTime: 0
         };
 
         gs.enemies.push(enemy);
@@ -1422,6 +1461,30 @@ export default function Game() {
             player.shield = Math.min(player.maxShield, player.shield + 0.05);
         }
 
+        // Parasite DOT tick
+        if (player.parasiteUntil && now < player.parasiteUntil && player.parasiteDamageRemaining > 0) {
+            if (now - (player.lastParasiteTick || 0) > 400) {
+                player.lastParasiteTick = now;
+                const tickDamage = Math.min(2, player.parasiteDamageRemaining);
+                player.parasiteDamageRemaining -= tickDamage;
+                if (!player.invulnerable) {
+                    player.health -= tickDamage;
+                    createParticles(player.x, player.y, '#884400', 3, 2);
+                }
+            }
+        }
+
+        // Corrosive DOT tick
+        if (player.corrosiveUntil && now < player.corrosiveUntil) {
+            if (now - (player.lastCorrosiveTick || 0) > 500) {
+                player.lastCorrosiveTick = now;
+                if (!player.invulnerable) {
+                    player.health -= player.corrosiveDamage || 4;
+                    createParticles(player.x, player.y, '#00ff66', 3, 2);
+                }
+            }
+        }
+
         // Glass Cannon: overload damage boost
         const overloadBonus = (player.classId === 'glass_cannon' && player.overloadUntil && now < player.overloadUntil) ? 2 : 1;
 
@@ -1431,8 +1494,14 @@ export default function Game() {
         const dashBonus = player.dashActive ? (player.dashPower || 4) : 1;
         const sandevistanBonus = player.sandevistanBonus || 1;
         const obstacleSlowFactor = player.obstacleSlowed ? (player.obstacleSlowFactor || 0.4) : 1;
+        // Sticker slow: each attached sticker slows by 15%
+        const stickerSlowPenalty = (player.stickerSlowed && player.stickerSlowUntil > now) ? Math.max(0.3, 1 - (player.stickersAttached || 0) * 0.15) : 1;
+        // Glue trap: complete immobilization
+        const glueTrapPenalty = (player.gluedUntil && now < player.gluedUntil) ? 0 : 1;
+        // Parasite slow
+        const parasiteSlowPenalty = (player.parasiteUntil && now < player.parasiteUntil) ? 0.5 : 1;
         const speedMultiplier = (player.dashActive ? dashBonus : (player.isSprinting ? 1.5 : 1))
-            * momentumBonus * quickstepBonus * slipstreamBonus * (nitroActive ? 2 : 1) * afterburnerBonus * frostSlowPenalty * sandevistanBonus * obstacleSlowFactor;
+            * momentumBonus * quickstepBonus * slipstreamBonus * (nitroActive ? 2 : 1) * afterburnerBonus * frostSlowPenalty * sandevistanBonus * obstacleSlowFactor * stickerSlowPenalty * glueTrapPenalty * parasiteSlowPenalty;
 
         // Store current speed for afterburner check
         player.momentumBonus = momentumBonus;
@@ -3596,6 +3665,34 @@ export default function Game() {
                         continue; // Dodged!
                     }
 
+                    // Special bullet types that don't do normal damage
+
+                    // Glue trap - immobilize player
+                    if (b.isGlueTrap) {
+                        player.gluedUntil = now + (b.glueDuration || 5000);
+                        createParticles(player.x, player.y, '#aaaa00', 15, 4);
+                        bullets.splice(i, 1);
+                        continue;
+                    }
+
+                    // Parasite - attaches and deals DOT + slow
+                    if (b.isParasite) {
+                        player.parasiteUntil = now + (b.parasiteDuration || 4000);
+                        player.parasiteDamageRemaining = b.parasiteDamage || 20;
+                        player.lastParasiteTick = now;
+                        createParticles(player.x, player.y, '#884400', 10, 4);
+                        bullets.splice(i, 1);
+                        continue;
+                    }
+
+                    // Corrosive - applies DOT
+                    if (b.corrosive) {
+                        player.corrosiveUntil = now + (b.dotDuration || 3000);
+                        player.corrosiveDamage = b.dotDamage || 4;
+                        player.lastCorrosiveTick = now;
+                        createParticles(player.x, player.y, '#00ff66', 8, 4);
+                    }
+
                     let damage = b.damage;
 
                     // Fortress: damage reduction
@@ -4511,6 +4608,90 @@ export default function Game() {
                     player.quickstepUntil = now + 1000;
                 }
 
+                // === SPECIAL DEATH BEHAVIORS ===
+
+                // Cerberus - respawns with less health until final death
+                if (e.isCerberus && e.lives > 0) {
+                    e.lives--;
+                    e.health = e.maxHealth * (0.7 - (e.maxLives - e.lives) * 0.15); // Less health each time
+                    e.maxHealth = e.health;
+                    e.size -= 3; // Gets smaller
+                    e.speed += 0.3; // Gets faster
+                    e.color = ['#888888', '#666666', '#444444', '#222222'][e.maxLives - e.lives];
+
+                    // Break off stone particles
+                    createParticles(e.x, e.y, '#888888', 20 + (e.maxLives - e.lives) * 10, 8);
+                    triggerScreenShake(0.4);
+                    sfxRef.current?.criticalHit();
+
+                    // On final death (lives = 0), shatter like iai strike
+                    if (e.lives === 0) {
+                        // Create glass shatter pieces
+                        for (let s = 0; s < 8; s++) {
+                            const shardAngle = (s / 8) * Math.PI * 2;
+                            gs.particles.push({
+                                x: e.x,
+                                y: e.y,
+                                vx: Math.cos(shardAngle) * (5 + Math.random() * 5),
+                                vy: Math.sin(shardAngle) * (5 + Math.random() * 5) - 2,
+                                life: 60,
+                                maxLife: 60,
+                                color: '#666666',
+                                size: 8 + Math.random() * 12,
+                                type: 'glass_debris',
+                                rotation: Math.random() * Math.PI * 2,
+                                rotationSpeed: (Math.random() - 0.5) * 0.2
+                            });
+                        }
+                    }
+                    continue; // Don't remove, just reset
+                }
+
+                // Duplicator - splits into two smaller copies
+                if (e.isDuplicator && e.splitCount < e.maxSplits) {
+                    // Spawn two copies
+                    for (let d = 0; d < 2; d++) {
+                        const spawnAngle = Math.random() * Math.PI * 2;
+                        const newHealth = e.maxHealth * 0.5;
+                        enemies.push({
+                            x: e.x + Math.cos(spawnAngle) * 20,
+                            y: e.y + Math.sin(spawnAngle) * 20,
+                            health: newHealth,
+                            maxHealth: newHealth,
+                            speed: e.speed * 1.1,
+                            baseSpeed: e.baseSpeed * 1.1,
+                            damage: e.damage * 0.8,
+                            size: Math.max(10, e.size * 0.75),
+                            color: e.color,
+                            points: Math.floor(e.points * 0.5),
+                            type: 'duplicator',
+                            isDuplicator: true,
+                            splitCount: e.splitCount + 1,
+                            maxSplits: e.maxSplits,
+                            lastShot: 0,
+                            lastMeleeHit: 0,
+                            hitFlash: 0,
+                            spawnTime: now
+                        });
+                    }
+                    createParticles(e.x, e.y, '#ff88ff', 15, 6);
+                }
+
+                // Tumor cell death - heals other tumor cells
+                if (e.isTrueTumor) {
+                    enemies.forEach(other => {
+                        if (other.isTumor && other !== e) {
+                            other.health = Math.min(other.maxHealth, other.health + e.maxHealth * 0.3);
+                            createParticles(other.x, other.y, '#990066', 8, 4);
+                        }
+                    });
+                }
+
+                // Remove sticker from player count
+                if (e.attachedToPlayer && player.stickersAttached) {
+                    player.stickersAttached = Math.max(0, player.stickersAttached - 1);
+                }
+
                 enemies.splice(i, 1);
                 continue;
             }
@@ -4801,23 +4982,23 @@ export default function Game() {
                 sfxRef.current?.mortarLaunch();
             }
 
-            // Cloud shooter (Shambler)
-            if (e.cloudShooter && now - e.lastShot > (e.megaCloud ? 2000 : 3000)) {
+            // Cloud shooter (Shambler, Toxin)
+            if (e.cloudShooter && now - e.lastShot > (e.megaCloud ? 2000 : (e.tripleCloud ? 2500 : 3000))) {
                 e.lastShot = now;
                 const angle = Math.atan2(player.y - e.y, player.x - e.x);
-                const cloudCount = e.megaCloud ? 5 : 1;
+                const cloudCount = e.megaCloud ? 5 : (e.tripleCloud ? 3 : 1);
                 for (let c = 0; c < cloudCount; c++) {
-                    const spreadAngle = angle + (c - Math.floor(cloudCount / 2)) * 0.3;
+                    const spreadAngle = angle + (c - Math.floor(cloudCount / 2)) * 0.4;
                     gs.bullets.push({
                         x: e.x,
                         y: e.y,
-                        vx: Math.cos(spreadAngle) * 3,
-                        vy: Math.sin(spreadAngle) * 3,
+                        vx: Math.cos(spreadAngle) * (e.tripleCloud ? 4 : 3),
+                        vy: Math.sin(spreadAngle) * (e.tripleCloud ? 4 : 3),
                         damage: e.damage * (e.megaCloud ? 0.8 : 0.5),
                         isEnemy: true,
                         piercing: 0,
-                        size: e.megaCloud ? 25 : 15,
-                        color: e.megaCloud ? '#aa44ff' : '#8888ff',
+                        size: e.megaCloud ? 25 : (e.tripleCloud ? 18 : 15),
+                        color: e.megaCloud ? '#aa44ff' : (e.tripleCloud ? '#88ff88' : '#8888ff'),
                         isCloud: true,
                         lifetime: e.megaCloud ? 300 : 180
                     });
@@ -5105,6 +5286,174 @@ export default function Game() {
                 ctx.arc(e.x, e.y, e.size + 15, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.globalAlpha = 1;
+            }
+
+            // === NEW SPECIAL ENEMY BEHAVIORS ===
+
+            // Tumor - fuses with nearby non-boss, non-tumor enemies
+            if (e.isTumor && !e.isTrueTumor) {
+                enemies.forEach(other => {
+                    if (other !== e && !other.bossType && !other.isTumor && !other.isCombiner && !other.fusedWithTumor) {
+                        const dist = Math.hypot(e.x - other.x, e.y - other.y);
+                        if (dist < e.size + other.size) {
+                            // Fuse with this enemy
+                            e.fusedCount++;
+                            other.fusedWithTumor = true;
+                            e.fusedWith.push(other);
+
+                            // Mix colors
+                            e.color = '#' + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0');
+
+                            // Grow slightly
+                            e.size += other.size * 0.3;
+                            e.health += other.health * 0.5;
+                            e.maxHealth += other.health * 0.5;
+
+                            // Remove the fused enemy from main array
+                            const otherIdx = enemies.indexOf(other);
+                            if (otherIdx > -1) enemies.splice(otherIdx, 1);
+
+                            createParticles(e.x, e.y, e.color, 15, 6);
+
+                            // Become true tumor after 3+ fusions
+                            if (e.fusedCount >= 3) {
+                                e.isTrueTumor = true;
+                                e.color = '#660033';
+                                e.speed *= 0.7;
+                                e.damage *= 2;
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Combiner - fuses with other combiners
+            if (e.isCombiner) {
+                enemies.forEach(other => {
+                    if (other !== e && other.isCombiner && !other.markedForCombine) {
+                        const dist = Math.hypot(e.x - other.x, e.y - other.y);
+                        if (dist < e.size + other.size + 5) {
+                            // This combiner absorbs the other
+                            other.markedForCombine = true;
+                            e.combineLevel++;
+                            e.size += 4;
+                            e.health += other.health;
+                            e.maxHealth += other.maxHealth;
+                            e.damage += other.damage * 0.5;
+                            e.speed = Math.max(0.8, e.speed - 0.1);
+
+                            // Remove absorbed combiner
+                            const otherIdx = enemies.indexOf(other);
+                            if (otherIdx > -1) enemies.splice(otherIdx, 1);
+
+                            createParticles(e.x, e.y, '#4488ff', 15, 6);
+
+                            // Visual feedback for level
+                            if (e.combineLevel >= 5) {
+                                e.color = '#0044ff'; // Dark blue for high level
+                            } else if (e.combineLevel >= 3) {
+                                e.color = '#2266ff'; // Medium blue
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Corrosive - shoots fast DOT projectiles
+            if (e.corrosiveShot && now - e.lastShot > 2000) {
+                e.lastShot = now;
+                const angle = Math.atan2(player.y - e.y, player.x - e.x);
+                gs.bullets.push({
+                    x: e.x,
+                    y: e.y,
+                    vx: Math.cos(angle) * 12,
+                    vy: Math.sin(angle) * 12,
+                    damage: e.damage * 0.3,
+                    isEnemy: true,
+                    piercing: 0,
+                    size: 10,
+                    color: '#00ff66',
+                    corrosive: true,
+                    dotDamage: 4,
+                    dotDuration: 3000
+                });
+            }
+
+            // Parasite - shoots seeking projectile
+            if (e.shootsParasite && now - e.lastShot > 3500) {
+                e.lastShot = now;
+                const angle = Math.atan2(player.y - e.y, player.x - e.x);
+                gs.bullets.push({
+                    x: e.x,
+                    y: e.y,
+                    vx: Math.cos(angle) * 5,
+                    vy: Math.sin(angle) * 5,
+                    damage: 2,
+                    isEnemy: true,
+                    piercing: 0,
+                    size: 8,
+                    color: '#884400',
+                    isParasite: true,
+                    homing: true,
+                    homingStrength: 0.03,
+                    parasiteDamage: 20,
+                    parasiteDuration: 4000
+                });
+            }
+
+            // Sticky - shoots glue traps
+            if (e.shootsGlue && now - e.lastShot > 4000) {
+                e.lastShot = now;
+                const angle = Math.atan2(player.y - e.y, player.x - e.x);
+                gs.bullets.push({
+                    x: e.x,
+                    y: e.y,
+                    vx: Math.cos(angle) * 6,
+                    vy: Math.sin(angle) * 6,
+                    damage: 0,
+                    isEnemy: true,
+                    piercing: 0,
+                    size: 15,
+                    color: '#aaaa00',
+                    isGlueTrap: true,
+                    glueDuration: 5000
+                });
+            }
+
+            // Sticker/Sticky Grenade - charges and latches onto player
+            if (e.isSticker && !e.attachedToPlayer) {
+                const dist = Math.hypot(e.x - player.x, e.y - player.y);
+                if (dist < PLAYER_SIZE + e.size) {
+                    e.attachedToPlayer = true;
+                    e.attachTime = now;
+                    player.stickersAttached = (player.stickersAttached || 0) + 1;
+                    createParticles(e.x, e.y, e.color, 10, 4);
+                }
+            }
+
+            // Sticker attached behavior
+            if (e.attachedToPlayer) {
+                // Follow player
+                e.x = player.x + Math.cos(now * 0.01 + enemies.indexOf(e)) * (PLAYER_SIZE + 5);
+                e.y = player.y + Math.sin(now * 0.01 + enemies.indexOf(e)) * (PLAYER_SIZE + 5);
+
+                // Slow player
+                player.stickerSlowed = true;
+                player.stickerSlowUntil = now + 100;
+
+                // Sticky grenade explodes after attachment
+                if (e.explodesWhenAttached && now - e.attachTime > 2000) {
+                    // Explode!
+                    if (!player.invulnerable) {
+                        player.health -= e.damage;
+                        createDamageNumber(player.x, player.y - PLAYER_SIZE, e.damage, false);
+                    }
+                    createParticles(e.x, e.y, '#ffff00', 25, 10);
+                    createRingExplosion(e.x, e.y, '#ffff00', 60);
+                    triggerScreenShake(0.5);
+                    player.stickersAttached = Math.max(0, (player.stickersAttached || 1) - 1);
+                    e.health = 0; // Kill it
+                }
             }
 
             // Player collision

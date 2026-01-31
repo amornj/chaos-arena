@@ -753,6 +753,148 @@ TACTICAL ANALYSIS: All nearby enemies share its intelligence. Coordinated swarm 
 
 FIELD NOTES: "They moved as one mind. Thousands of bodies, one thought. And that thought was our extinction."
 - Collective Psychology Study (Classified)`
+    },
+
+    // === NEW SPECIAL VARIANTS ===
+    tumor: {
+        name: 'TUMOR',
+        threat: 'MEDIUM',
+        desc: 'FUSION PARASITE / ABSORBS ENEMIES',
+        category: 'Special',
+        lore: `UNIT DESIGNATION: TM-50 "TUMOR"
+
+ORIGIN: A biological anomaly that emerged from corrupted medical nanobots. It doesn't just kill—it consumes and grows.
+
+TACTICAL ANALYSIS: Fuses with nearby enemies, absorbing their mass and power. After three fusions, becomes a "True Tumor" with enhanced abilities. Killing tumor cells heals the remaining mass. Kill the source before it grows.
+
+FIELD NOTES: "It touched a Runner. Then they were one. Colors mixing, shapes merging. It's not killing—it's becoming."
+- Xenobiologist Dr. Yamamoto`
+    },
+    combiner: {
+        name: 'COMBINER',
+        threat: 'MEDIUM',
+        desc: 'FUSION UNIT / COMBINES WITH ALLIES',
+        category: 'Special',
+        lore: `UNIT DESIGNATION: CB-51 "COMBINER"
+
+ORIGIN: Modular construction drones designed to merge for heavy lifting. The Corruption made them merge for heavy killing.
+
+TACTICAL ANALYSIS: Weak individually but comes in swarms. When two Combiners touch, one absorbs the other, growing larger and stronger. Eliminate them before they can merge.
+
+FIELD NOTES: "Started as twenty small blue dots. Ended as one massive blue nightmare. Don't let them touch."
+- Survivor's Journal, Entry 47`
+    },
+    toxin: {
+        name: 'TOXIN',
+        threat: 'MEDIUM',
+        desc: 'TRIPLE CLOUD SHOOTER / AREA DENIAL',
+        category: 'Ranged',
+        lore: `UNIT DESIGNATION: TX-52 "TOXIN"
+
+ORIGIN: Advanced chemical warfare unit. Unlike the Shambler's single cloud, Toxin deploys three simultaneously.
+
+TACTICAL ANALYSIS: Fires three toxic clouds in a spread pattern. Creates significant area denial. Prioritize elimination to maintain mobility.
+
+FIELD NOTES: "One cloud you can dodge. Three? You better have a gas mask. Or wings."
+- Chemical Response Team Alpha`
+    },
+    cerberus: {
+        name: 'CERBERUS',
+        threat: 'HIGH',
+        desc: 'THREE LIVES / SHATTERS ON FINAL DEATH',
+        category: 'Tank',
+        lore: `UNIT DESIGNATION: CB-53 "CERBERUS"
+
+ORIGIN: Named after the three-headed guardian of the underworld. This stone construct must be destroyed three times before it stays dead.
+
+TACTICAL ANALYSIS: Each "death" breaks away stone armor, making it faster but weaker. On the third death, it shatters completely into fragments. Don't celebrate early.
+
+FIELD NOTES: "I killed it. Then I killed it again. Then again. The fourth time, it finally stayed down. In pieces."
+- Arena Veteran "Three-Timer"`
+    },
+    corrosive: {
+        name: 'CORROSIVE',
+        threat: 'MEDIUM',
+        desc: 'FAST DOT PROJECTILES / MELTS ARMOR',
+        category: 'Ranged',
+        lore: `UNIT DESIGNATION: CR-54 "CORROSIVE"
+
+ORIGIN: Industrial acid sprayers converted for combat. Their projectiles don't just hit—they keep eating.
+
+TACTICAL ANALYSIS: Fires fast-moving projectiles that apply damage over time. The burning sensation continues long after impact. Evasion is critical.
+
+FIELD NOTES: "The shot barely grazed me. But I could feel my armor dissolving for the next thirty seconds."
+- Equipment Maintenance Log`
+    },
+    duplicator: {
+        name: 'DUPLICATOR',
+        threat: 'HIGH',
+        desc: 'SPLITS ON DEATH / UP TO 8 COPIES',
+        category: 'Special',
+        lore: `UNIT DESIGNATION: DP-55 "DUPLICATOR"
+
+ORIGIN: Self-replicating repair drones. When destroyed, their backup systems create two smaller copies.
+
+TACTICAL ANALYSIS: Each kill creates two smaller, weaker copies. Can split up to three times, creating a maximum of eight units. Overwhelming force required—partial measures multiply the problem.
+
+FIELD NOTES: "Kill one, get two. Kill those two, get four. I ran out of ammo before I ran out of Duplicators."
+- Ammunition Requisition Form #8,847`
+    },
+    parasite: {
+        name: 'PARASITE',
+        threat: 'MEDIUM',
+        desc: 'SEEKING PROJECTILE / LATCHES AND DRAINS',
+        category: 'Ranged',
+        lore: `UNIT DESIGNATION: PR-56 "PARASITE"
+
+ORIGIN: Medical extraction drones repurposed for extraction of a different kind—your life force.
+
+TACTICAL ANALYSIS: Fires a slow but homing projectile. If it connects, it latches on, slowing movement and dealing sustained damage. Total damage potential: 20 HP.
+
+FIELD NOTES: "I felt it attach to my shoulder. Then the weakness set in. Twenty damage doesn't sound like much until it's draining out of you."
+- Medical Incident Report`
+    },
+    sticky: {
+        name: 'STICKY',
+        threat: 'MEDIUM',
+        desc: 'GLUE TRAP SHOOTER / 5 SECOND IMMOBILIZE',
+        category: 'Ranged',
+        lore: `UNIT DESIGNATION: ST-57 "STICKY"
+
+ORIGIN: Industrial adhesive dispensers. One glob of their compound can hold a tank in place.
+
+TACTICAL ANALYSIS: Fires glue traps that completely immobilize targets for 5 seconds. Being stuck while other enemies close in is a death sentence. Stay mobile.
+
+FIELD NOTES: "Couldn't move. Couldn't dodge. Just watched everything come toward me. Five seconds felt like five hours."
+- Mobility Training Incident`
+    },
+    sticker: {
+        name: 'STICKER',
+        threat: 'LOW',
+        desc: 'LATCH ATTACK / SLOWS MOVEMENT',
+        category: 'Speed',
+        lore: `UNIT DESIGNATION: SK-58 "STICKER"
+
+ORIGIN: Magnetic attachment drones. They latch onto targets, each one adding weight and drag.
+
+TACTICAL ANALYSIS: Charges and attaches to target on contact. Each attached Sticker reduces movement speed by 15%. Must be killed while attached to remove. Multiple Stickers stack.
+
+FIELD NOTES: "One's annoying. Two's problematic. Three's deadly. Four... well, nobody's survived four."
+- Movement Dynamics Study`
+    },
+    sticky_grenade: {
+        name: 'STICKY GRENADE',
+        threat: 'HIGH',
+        desc: 'LATCH + EXPLODE / SUICIDE BOMBER',
+        category: 'Explosive',
+        lore: `UNIT DESIGNATION: SG-59 "STICKY GRENADE"
+
+ORIGIN: The unholy combination of Sticker mobility and Bloater explosives. Latches on, then detonates.
+
+TACTICAL ANALYSIS: Charges like a Sticker but explodes 2 seconds after attachment. Slows target while counting down. Kill it before it reaches you, or kill it fast after attachment.
+
+FIELD NOTES: "It grabbed onto me and started beeping. I had two seconds to make peace with my choices."
+- Explosive Ordnance Disposal, Final Report`
     }
 };
 
@@ -865,7 +1007,7 @@ export default function EnemyLog({ onClose, sandboxMode, onSpawnEnemy }) {
                     ) : (
                         /* Enemy List */
                         <div className="space-y-4">
-                            {['Basic', 'Tank', 'Speed', 'Explosive', 'Ranged', 'Boss'].map(category => {
+                            {['Basic', 'Tank', 'Speed', 'Explosive', 'Ranged', 'Special', 'Boss'].map(category => {
                                 const categoryEnemies = Object.entries(ENEMY_INFO).filter(([, info]) => info.category === category);
                                 const categoryColors = {
                                     Basic: 'border-gray-500 text-gray-400',
@@ -873,6 +1015,7 @@ export default function EnemyLog({ onClose, sandboxMode, onSpawnEnemy }) {
                                     Speed: 'border-yellow-500 text-yellow-400',
                                     Explosive: 'border-orange-500 text-orange-400',
                                     Ranged: 'border-green-500 text-green-400',
+                                    Special: 'border-pink-500 text-pink-400',
                                     Boss: 'border-purple-500 text-purple-400'
                                 };
                                 return (
