@@ -6,7 +6,6 @@ import GameOverScreen from '@/components/game/GameOverScreen';
 import ClassSelection from '@/components/game/ClassSelection';
 import EnemyLog from '@/components/game/EnemyLog';
 import WeaponLog from '@/components/game/WeaponLog';
-import EnemyCounter from '@/components/game/EnemyCounter';
 import CheatPopup from '@/components/game/CheatPopup';
 import SandboxUI, { OBSTACLE_TYPES } from '@/components/game/SandboxUI';
 import { createSFX } from '@/components/game/SoundEngine';
@@ -6437,7 +6436,6 @@ export default function Game() {
             {gameStarted && !gameOver && (
                 <>
                     <GameUI {...uiState} />
-                    <EnemyCounter enemies={gameStateRef.current?.enemies || []} />
                     {sandboxMode && (
                         <SandboxUI
                             onSpawnEnemy={sandboxSpawnEnemy}
