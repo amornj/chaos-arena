@@ -86,3 +86,27 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Achievement notification animation */
+@keyframes slide-down {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-100%);
+  }
+  10% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  90% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-20px);
+  }
+}
+
+.animate-slide-down {
+  animation: slide-down 4s ease-in-out forwards;
+}

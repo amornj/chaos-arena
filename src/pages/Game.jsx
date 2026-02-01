@@ -10,6 +10,7 @@ import CheatPopup from '@/components/game/CheatPopup';
 import SandboxUI, { OBSTACLE_TYPES } from '@/components/game/SandboxUI';
 import { createSFX } from '@/components/game/SoundEngine';
 import { shootWeapon, createWeaponUpgrade, createGearUpgrade, WEAPONS, GEAR } from '@/components/game/WeaponSystem';
+import { useAchievements, AchievementNotifications, AchievementPanel, loadDeaths, saveDeaths } from '@/components/game/Achievements';
 
 // Game constants
 const PLAYER_BASE_SPEED = 5;
@@ -55,8 +56,23 @@ export default function Game() {
     const [cheatsEnabled, setCheatsEnabled] = useState(false);
     const [noWeaponCooldown, setNoWeaponCooldown] = useState(false);
     const [blindEnemies, setBlindEnemies] = useState(false);
+    const [showAchievements, setShowAchievements] = useState(false);
     const konamiCodeRef = useRef([]);
     const konamiSequence = ['arrowup', 'arrowup', 'arrowdown', 'arrowdown', 'arrowleft', 'arrowright', 'arrowleft', 'arrowright', 'b', 'a'];
+
+    // Achievement system
+    const { unlock: unlockAchievement, isUnlocked, notifications: achievementNotifications, dismissNotification } = useAchievements();
+    const unlockAchievementRef = useRef(unlockAchievement);
+    unlockAchievementRef.current = unlockAchievement;
+    const achievementTrackerRef = useRef({
+        hasSprintedOnce: false,
+        encounteredTypes: new Set(),
+        waveStartTime: 0,
+        maxEnemiesThisWave: 0,
+        killedTypes: new Set(),
+        hasKilledOnce: false,
+        hasMeleeKilled: false
+    });
 
     // Initialize sound effects
     useEffect(() => {
@@ -382,6 +398,34 @@ export default function Game() {
             attachedToPlayer: false,
             attachTime: 0
         };
+
+        // Achievement tracking for enemy encounters
+        const tracker = achievementTrackerRef.current;
+        if (!tracker.encounteredTypes.has(type)) {
+            tracker.encounteredTypes.add(type);
+            // Encounter achievements
+            if (type === 'toxin' || type === 'tumor' || type === 'shambler') {
+                unlockAchievementRef.current('encounter_toxic');
+            }
+            if (type === 'tumor') {
+                unlockAchievementRef.current('encounter_tumor');
+            }
+            if (type === 'parasite') {
+                unlockAchievementRef.current('encounter_parasite');
+            }
+            if (type === 'sticker') {
+                unlockAchievementRef.current('encounter_sticker');
+            }
+            if (type === 'wraith') {
+                unlockAchievementRef.current('encounter_wraith');
+            }
+            if (type === 'apocalypse') {
+                unlockAchievementRef.current('encounter_apocalypse');
+            }
+            if (type === 'boss_hivemind') {
+                unlockAchievementRef.current('encounter_hivemind');
+            }
+        }
 
         gs.enemies.push(enemy);
     }, []);
@@ -1028,6 +1072,18 @@ export default function Game() {
         if (gs) {
             upgrade.apply(gs.player);
             sfxRef.current?.upgrade();
+
+            // Achievement tracking for upgrades
+            // Weapon achievements
+            if (upgrade.id === 'nuclear_sword') unlockAchievement('equip_nuclear_sword');
+            if (upgrade.id === 'nuke_launcher') unlockAchievement('equip_nuke_launcher');
+            if (upgrade.id === 'fish') unlockAchievement('equip_fish');
+            if (upgrade.id === 'disintegrator') unlockAchievement('equip_disintegrator');
+            // Dash module achievements
+            if (upgrade.id === 'dash') unlockAchievement('dash_v1');
+            if (upgrade.id === 'dash_v2') unlockAchievement('dash_v2');
+            if (upgrade.id === 'blitz') unlockAchievement('dash_blitz');
+
             // Track upgrade history
             setUpgradeHistory(prev => [...prev, {
                 id: upgrade.id,
@@ -1039,7 +1095,7 @@ export default function Game() {
             setShowUpgrades(false);
             setIsPaused(false);
         }
-    }, []);
+    }, [unlockAchievement]);
 
     const handleReroll = useCallback(() => {
         if (rerolls > 0) {
@@ -1139,6 +1195,11 @@ export default function Game() {
             player.isSprinting = true;
             player.stamina = Math.max(0, player.stamina - 0.5);
             player.lastStaminaUse = now;
+            // Achievement: Why are you running?
+            if (!achievementTrackerRef.current.hasSprintedOnce) {
+                achievementTrackerRef.current.hasSprintedOnce = true;
+                unlockAchievementRef.current('sprint_used');
+            }
         } else {
             player.isSprinting = false;
             if (now - player.lastStaminaUse > 1000) {
@@ -2180,11 +2241,32 @@ export default function Game() {
             }
         }
 
+        // Track max enemies this wave for achievement
+        const tracker = achievementTrackerRef.current;
+        if (enemies.length > tracker.maxEnemiesThisWave) {
+            tracker.maxEnemiesThisWave = enemies.length;
+            // Achievement: We are so cooked (32+ enemies)
+            if (enemies.length >= 32) {
+                unlockAchievementRef.current('many_enemies');
+            }
+        }
+
         // Check wave complete
         if (gs.enemiesSpawned >= gs.enemiesThisWave && enemies.length === 0 && !gs.waveComplete) {
             gs.waveComplete = true;
             sfxRef.current?.waveComplete();
             triggerScreenShake(0.5);
+
+            // Wave completion achievements
+            // Achievement: Halfway to hell (survive on 1 HP)
+            if (player.health <= 1) {
+                unlockAchievementRef.current('survive_1hp');
+            }
+            // Achievement: Its been a while (5+ minutes in wave)
+            const waveTime = (Date.now() - tracker.waveStartTime) / 1000;
+            if (waveTime >= 300) { // 5 minutes = 300 seconds
+                unlockAchievementRef.current('survive_5min');
+            }
 
             // Show upgrades
             setTimeout(() => {
@@ -2202,6 +2284,10 @@ export default function Game() {
                 gs.enemiesThisWave = Math.floor(5 + gs.wave * 2 + Math.pow(gs.wave, 1.3));
                 gs.enemiesSpawned = 0;
                 gs.waveComplete = false;
+
+                // Reset achievement tracking for new wave
+                tracker.waveStartTime = Date.now();
+                tracker.maxEnemiesThisWave = 0;
             }, 1000);
         }
 
@@ -3763,6 +3849,14 @@ export default function Game() {
                             createParticles(player.x, player.y, '#00ff00', 30, 10);
                             sfxRef.current?.powerup();
                         } else {
+                            // Achievement tracking for death
+                            unlockAchievementRef.current('first_death');
+                            const deaths = loadDeaths() + 1;
+                            saveDeaths(deaths);
+                            if (deaths >= 5) {
+                                unlockAchievementRef.current('five_deaths');
+                            }
+
                             setFinalStats({
                                 wave: gs.wave,
                                 score: gs.score,
@@ -4093,15 +4187,18 @@ export default function Game() {
                             }
 
                             // Damage nearby enemies (ironclad resists explosions)
+                            let aoeKillCount = 0;
                             enemies.forEach(other => {
                                 if (other !== e) {
                                     const d = Math.hypot(other.x - b.x, other.y - b.y);
                                     if (d < radius) {
                                         let explosionDamage = damage * (b.explosionRadius ? 0.7 : 0.5);
                                         if (other.explosionResist) explosionDamage *= 0.3; // Ironclad takes 70% less explosion damage
+                                        const willDie = other.health > 0 && other.health - explosionDamage <= 0;
                                         other.health -= explosionDamage;
                                         other.hitFlash = 5;
                                         createDamageNumber(other.x, other.y - other.size, explosionDamage, false);
+                                        if (willDie) aoeKillCount++;
 
                                         // Napalm applies burn DOT
                                         if (b.napalm) {
@@ -4112,6 +4209,14 @@ export default function Game() {
                                     }
                                 }
                             });
+                            // Achievement: Discombobulate (3+ kills with AOE)
+                            if (aoeKillCount >= 3) {
+                                unlockAchievementRef.current('aoe_multikill');
+                            }
+                            // Achievement: Wave wipe (kill entire wave with one attack)
+                            if (aoeKillCount > 0 && aoeKillCount + 1 >= enemies.length && enemies.length >= 5) {
+                                unlockAchievementRef.current('wave_wipe');
+                            }
                         }
 
                         if (e.health <= 0) {
@@ -4532,6 +4637,20 @@ export default function Game() {
                     gs.combo++;
                     gs.comboTimer = 120;
 
+                    // Achievement tracking for melee kills
+                    const tracker = achievementTrackerRef.current;
+                    if (!tracker.hasKilledOnce) {
+                        tracker.hasKilledOnce = true;
+                        unlockAchievementRef.current('first_blood');
+                    }
+                    unlockAchievementRef.current('melee_kill');
+                    // Track specific enemy kills
+                    if (e.type === 'runner') unlockAchievementRef.current('kill_runner');
+                    if (e.type === 'brute') unlockAchievementRef.current('kill_brute');
+                    if (e.type === 'blitzer') unlockAchievementRef.current('kill_blitzer');
+                    if (e.type === 'cerberus') unlockAchievementRef.current('kill_cerberus');
+                    if (e.type === 'duplicator') unlockAchievementRef.current('kill_duplicator');
+
                     if (e.type === 'boss') {
                         sfxRef.current?.killBoss();
                     } else {
@@ -4566,6 +4685,19 @@ export default function Game() {
                 gs.totalKills++;
                 gs.combo++;
                 gs.comboTimer = 120;
+
+                // Achievement tracking for kills
+                const tracker = achievementTrackerRef.current;
+                if (!tracker.hasKilledOnce) {
+                    tracker.hasKilledOnce = true;
+                    unlockAchievementRef.current('first_blood');
+                }
+                // Track specific enemy kills
+                if (e.type === 'runner') unlockAchievementRef.current('kill_runner');
+                if (e.type === 'brute') unlockAchievementRef.current('kill_brute');
+                if (e.type === 'blitzer') unlockAchievementRef.current('kill_blitzer');
+                if (e.type === 'cerberus') unlockAchievementRef.current('kill_cerberus');
+                if (e.type === 'duplicator') unlockAchievementRef.current('kill_duplicator');
 
                 if (e.type === 'boss') {
                     sfxRef.current?.killBoss();
@@ -5428,6 +5560,8 @@ export default function Game() {
                     e.attachTime = now;
                     player.stickersAttached = (player.stickersAttached || 0) + 1;
                     createParticles(e.x, e.y, e.color, 10, 4);
+                    // Achievement: GET IT OFF
+                    unlockAchievementRef.current('sticker_attached');
                 }
             }
 
@@ -6058,6 +6192,17 @@ export default function Game() {
         setRerolls(maxRerolls);
         setUpgradeHistory([]);
 
+        // Achievement: Baby steps
+        unlockAchievement('baby_steps');
+
+        // Reset achievement tracking for new run
+        achievementTrackerRef.current = {
+            hasSprintedOnce: false,
+            encounteredTypes: new Set(),
+            waveStartTime: Date.now(),
+            maxEnemiesThisWave: 0
+        };
+
         // Wait for canvas to be visible before initializing
         setTimeout(() => {
             initGame(classData);
@@ -6077,7 +6222,7 @@ export default function Game() {
             sfxRef.current?.start();
             animationRef.current = requestAnimationFrame(gameLoop);
         }, 50);
-    }, [initGame, gameLoop]);
+    }, [initGame, gameLoop, unlockAchievement]);
 
     const restartGame = useCallback(() => {
         cancelAnimationFrame(animationRef.current);
@@ -6530,6 +6675,18 @@ export default function Game() {
                                 });
 
                                 if (strongestEnemy) {
+                                    // Achievement: Way of the blade
+                                    unlockAchievementRef.current('iai_strike_used');
+                                    // Achievement: Diced (boss or tanky enemy)
+                                    if (strongestEnemy.bossType || strongestEnemy.maxHealth >= 100) {
+                                        unlockAchievementRef.current('iai_strike_boss');
+                                    }
+                                    // Achievement: How- (use iai strike with non-melee weapon)
+                                    const currentWeaponData = WEAPONS[player.currentWeapon];
+                                    if (currentWeaponData && !currentWeaponData.melee) {
+                                        unlockAchievementRef.current('iai_strike_ranged');
+                                    }
+
                                     // Start the Iai Strike sequence
                                     gs.iaiStrike = {
                                         active: true,
@@ -6764,6 +6921,12 @@ export default function Game() {
                         >
                             [ARSENAL]
                         </Button>
+                        <Button
+                            onClick={() => setShowAchievements(true)}
+                            className="bg-gray-800 hover:bg-gray-700 text-yellow-400 font-mono border border-yellow-500/30"
+                        >
+                            [ACHIEVEMENTS]
+                        </Button>
                     </div>
 
                     <div className="mt-8 text-gray-500 text-center">
@@ -6946,6 +7109,19 @@ export default function Game() {
             {showWeaponLog && (
                 <WeaponLog onClose={() => setShowWeaponLog(false)} />
             )}
+
+            {showAchievements && (
+                <AchievementPanel
+                    isOpen={showAchievements}
+                    onClose={() => setShowAchievements(false)}
+                />
+            )}
+
+            {/* Achievement notifications */}
+            <AchievementNotifications
+                notifications={achievementNotifications}
+                onDismiss={dismissNotification}
+            />
         </div>
     );
 }
