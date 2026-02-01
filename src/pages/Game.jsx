@@ -141,6 +141,10 @@ export default function Game() {
                 maxShield: shield > 0 ? 100 : 0,
                 regen,
                 lastRegen: 0,
+                stamina: 100,
+                maxStamina: 100,
+                lastStaminaUse: 0,
+                isSprinting: false,
                 currentWeapon: classData.stats.weapon,
                 classId,
                 ability: {
@@ -6145,6 +6149,8 @@ export default function Game() {
             kills: gs.totalKills,
             combo: gs.combo,
             shield: Math.round(player.shield),
+            stamina: Math.round(player.stamina || 0),
+            maxStamina: player.maxStamina || 100,
             weapon: WEAPONS[player.currentWeapon]?.name || 'Pistol',
             abilityReady,
             abilityName: player.ability.name,
@@ -6931,6 +6937,7 @@ export default function Game() {
 
                     <div className="mt-8 text-gray-500 text-center">
                         <p className="mb-2"><span className="text-gray-300">WASD</span> - Move</p>
+                        <p className="mb-2"><span className="text-gray-300">SHIFT</span> - Sprint</p>
                         <p className="mb-2"><span className="text-gray-300">MOUSE</span> - Aim</p>
                         <p><span className="text-gray-300">HOLD CLICK</span> - Shoot</p>
                     </div>

@@ -96,9 +96,11 @@ const ABILITY_KEYS = {
 
 export default function GameUI({
     health, maxHealth, wave, score, kills, combo, shield, weapon,
-    abilityReady, abilityName, abilityCooldown, playerAbilities, enemyCounts
+    abilityReady, abilityName, abilityCooldown, playerAbilities, enemyCounts,
+    stamina, maxStamina
 }) {
     const healthPercent = (health / maxHealth) * 100;
+    const staminaPercent = maxStamina > 0 ? (stamina / maxStamina) * 100 : 100;
 
     // Get active abilities from player state
     const activeAbilities = [];
@@ -147,6 +149,21 @@ export default function GameUI({
                             </div>
                         </div>
                     )}
+
+                    {/* Stamina bar */}
+                    <div className="flex items-center gap-3">
+                        <Zap className="w-5 h-5 text-yellow-400 drop-shadow-[0_0_10px_rgba(255,200,0,0.5)]" />
+                        <div className="w-32 h-3 bg-black/60 border border-yellow-500/30 relative overflow-hidden">
+                            <div
+                                className={`h-full transition-all duration-100 ${
+                                    staminaPercent < 30
+                                        ? 'bg-gradient-to-r from-red-600 to-orange-500'
+                                        : 'bg-gradient-to-r from-yellow-600 to-yellow-400'
+                                }`}
+                                style={{ width: `${staminaPercent}%` }}
+                            />
+                        </div>
+                    </div>
                 </div>
 
                 {/* Wave & Score */}
