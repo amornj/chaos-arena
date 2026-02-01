@@ -1087,6 +1087,10 @@ export default function Game() {
             if (upgrade.id === 'dash') unlockAchievement('dash_v1');
             if (upgrade.id === 'dash_v2') unlockAchievement('dash_v2');
             if (upgrade.id === 'blitz') unlockAchievement('dash_blitz');
+            // Other upgrade achievements
+            if (upgrade.id === 'orbital') unlockAchievement('equip_orbital');
+            if (upgrade.id === 'homing') unlockAchievement('get_homing');
+            if (upgrade.id === 'afterimage') unlockAchievement('use_afterimage');
 
             // Track upgrade history
             setUpgradeHistory(prev => [...prev, {
@@ -1602,6 +1606,8 @@ export default function Game() {
                     const angleDiff = Math.abs(driftAngle - inputAngle);
                     if (angleDiff > 0.3) {
                         createParticles(player.x, player.y, '#ffaa00', 2, 4);
+                        // Achievement: VREEEEEE- (drift)
+                        unlockAchievementRef.current('drift');
                     }
                 }
             } else {
@@ -2214,9 +2220,10 @@ export default function Game() {
         if (mouse.down && now - player.lastShot > weaponFireRate) {
             player.lastShot = now;
 
-            // Weapon-specific sounds
+            // Weapon-specific sounds and achievements
             if (player.currentWeapon === 'flamethrower') {
                 sfxRef.current?.shootFlamethrower();
+                unlockAchievementRef.current('use_flamethrower');
             } else if (player.currentWeapon === 'sniper') {
                 sfxRef.current?.shootSniper();
             } else if (player.currentWeapon === 'lightning') {
@@ -3860,6 +3867,10 @@ export default function Game() {
                             if (deaths >= 5) {
                                 unlockAchievementRef.current('five_deaths');
                             }
+                            // Die as juggernaut achievement
+                            if (player.classId === 'juggernaut') {
+                                unlockAchievementRef.current('die_as_juggernaut');
+                            }
 
                             setFinalStats({
                                 wave: gs.wave,
@@ -4217,6 +4228,10 @@ export default function Game() {
                             if (aoeKillCount >= 3) {
                                 unlockAchievementRef.current('aoe_multikill');
                             }
+                            // Achievement: Discombobulate² (6+ kills with AOE)
+                            if (aoeKillCount >= 6) {
+                                unlockAchievementRef.current('aoe_multikill_6');
+                            }
                             // Achievement: Wave wipe (kill entire wave with one attack)
                             if (aoeKillCount > 0 && aoeKillCount + 1 >= enemies.length && enemies.length >= 5) {
                                 unlockAchievementRef.current('wave_wipe');
@@ -4231,6 +4246,28 @@ export default function Game() {
                             gs.totalKills++;
                             gs.combo++;
                             gs.comboTimer = 120;
+
+                            // Achievement tracking for weapon-specific kills
+                            const weaponId = player.currentWeapon;
+                            if (weaponId === 'bare_hands') unlockAchievementRef.current('bare_hands_kill');
+                            if (weaponId === 'acid') unlockAchievementRef.current('acid_kill');
+                            if (weaponId === 'sniper' && e.type === 'sniper') unlockAchievementRef.current('countersnipe');
+                            if (e.type === 'juggernaut' && player.classId === 'juggernaut') unlockAchievementRef.current('kill_juggernaut_as_juggernaut');
+                            if (player.classId === 'juggernaut' && e.type === 'juggernaut') unlockAchievementRef.current('kill_juggernaut_as_juggernaut');
+                            if (e.type === 'titan_enemy' && player.classId === 'titan') unlockAchievementRef.current('kill_titan_as_titan');
+                            // First kill achievement
+                            const tracker = achievementTrackerRef.current;
+                            if (!tracker.hasKilledOnce) {
+                                tracker.hasKilledOnce = true;
+                                unlockAchievementRef.current('first_blood');
+                            }
+                            // Specific enemy kill achievements
+                            if (e.type === 'runner') unlockAchievementRef.current('kill_runner');
+                            if (e.type === 'brute') unlockAchievementRef.current('kill_brute');
+                            if (e.type === 'blitzer') unlockAchievementRef.current('kill_blitzer');
+                            if (e.type === 'cerberus') unlockAchievementRef.current('kill_cerberus');
+                            if (e.type === 'duplicator') unlockAchievementRef.current('kill_duplicator');
+
                             // Play different sounds for boss vs regular kills
                             if (e.type === 'boss') {
                                 sfxRef.current?.killBoss();
@@ -4648,12 +4685,19 @@ export default function Game() {
                         unlockAchievementRef.current('first_blood');
                     }
                     unlockAchievementRef.current('melee_kill');
+                    // Jackhammer kill achievement
+                    if (player.currentWeapon === 'jackhammer' || player.currentWeapon === 'overpump_jackhammer') {
+                        unlockAchievementRef.current('jackhammer_kill');
+                    }
                     // Track specific enemy kills
                     if (e.type === 'runner') unlockAchievementRef.current('kill_runner');
                     if (e.type === 'brute') unlockAchievementRef.current('kill_brute');
                     if (e.type === 'blitzer') unlockAchievementRef.current('kill_blitzer');
                     if (e.type === 'cerberus') unlockAchievementRef.current('kill_cerberus');
                     if (e.type === 'duplicator') unlockAchievementRef.current('kill_duplicator');
+                    // Class/enemy type match achievements
+                    if (e.type === 'juggernaut' && player.classId === 'juggernaut') unlockAchievementRef.current('kill_juggernaut_as_juggernaut');
+                    if (e.type === 'titan_enemy' && player.classId === 'titan') unlockAchievementRef.current('kill_titan_as_titan');
 
                     if (e.type === 'boss') {
                         sfxRef.current?.killBoss();
@@ -5019,18 +5063,24 @@ export default function Game() {
                         createDamageNumber(player.x, player.y - PLAYER_SIZE, damage, false);
                     }
 
-                    // Damage other enemies in blast
-                    if (e.bigExplosion || e.hugeExplosion) {
-                        enemies.forEach(other => {
-                            if (other !== e) {
-                                const d = Math.hypot(other.x - e.x, other.y - e.y);
-                                if (d < radius) {
-                                    other.health -= e.damage * 3;
-                                    other.hitFlash = 5;
-                                    createDamageNumber(other.x, other.y - other.size, e.damage * 3, false);
-                                }
+                    // Damage other enemies in blast (all exploding enemies can friendly fire)
+                    let friendlyFireKills = 0;
+                    enemies.forEach(other => {
+                        if (other !== e) {
+                            const d = Math.hypot(other.x - e.x, other.y - e.y);
+                            if (d < radius) {
+                                const explosionDmg = e.bigExplosion || e.hugeExplosion ? e.damage * 3 : e.damage * 1.5;
+                                const willDie = other.health > 0 && other.health - explosionDmg <= 0;
+                                other.health -= explosionDmg;
+                                other.hitFlash = 5;
+                                createDamageNumber(other.x, other.y - other.size, explosionDmg, false);
+                                if (willDie) friendlyFireKills++;
                             }
-                        });
+                        }
+                    });
+                    // Achievement: Friendly fire
+                    if (friendlyFireKills > 0) {
+                        unlockAchievementRef.current('friendly_fire');
                     }
 
                     // Cluster spawns mini bombs
@@ -6569,6 +6619,11 @@ export default function Game() {
 
                             case 'gunslinger':
                                 // Fan the Hammer - 6 rapid shots
+                                // Achievement: Okay. seriously. HOW- (use fan the hammer with melee weapon)
+                                const currentWeaponForFan = WEAPONS[player.currentWeapon];
+                                if (currentWeaponForFan && currentWeaponForFan.melee) {
+                                    unlockAchievementRef.current('fan_hammer_melee');
+                                }
                                 for (let i = 0; i < 6; i++) {
                                     setTimeout(() => {
                                         const spread = (i - 2.5) * 0.15;
@@ -6717,19 +6772,26 @@ export default function Game() {
                                 // Blood Drain - AoE lifesteal
                                 const drainRadius = 150;
                                 let totalDrained = 0;
+                                let bloodDrainKills = 0;
                                 gs.enemies.forEach(en => {
                                     const d = Math.hypot(en.x - player.x, en.y - player.y);
                                     if (d < drainRadius) {
                                         const drainDmg = player.damage * 2;
+                                        const willDie = en.health > 0 && en.health - drainDmg <= 0;
                                         en.health -= drainDmg;
                                         en.hitFlash = 10;
                                         totalDrained += drainDmg;
                                         createParticles(en.x, en.y, '#ff0044', 10, 6);
+                                        if (willDie) bloodDrainKills++;
                                     }
                                 });
                                 player.health = Math.min(player.maxHealth, player.health + totalDrained * 0.5);
                                 sfxRef.current?.healthPickup();
                                 createParticles(player.x, player.y, '#ff0044', 30, 12);
+                                // Achievement: Juice box
+                                if (bloodDrainKills > 0) {
+                                    unlockAchievementRef.current('blood_drain_kill');
+                                }
                                 break;
 
                             case 'engineer':

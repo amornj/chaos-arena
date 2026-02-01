@@ -257,6 +257,120 @@ export const ACHIEVEMENTS = {
         description: 'Die 5 times.',
         icon: '💀',
         rarity: 'uncommon'
+    },
+
+    // New achievements
+    aoe_multikill_6: {
+        id: 'aoe_multikill_6',
+        name: 'Discombobulate²',
+        description: 'Kill 6 enemies in one AOE attack.',
+        icon: '💥',
+        rarity: 'rare'
+    },
+    equip_orbital: {
+        id: 'equip_orbital',
+        name: 'War crimes.',
+        description: 'Equip the orbital laser.',
+        icon: '🛰️',
+        rarity: 'rare'
+    },
+    bare_hands_kill: {
+        id: 'bare_hands_kill',
+        name: 'Get slapped bozo',
+        description: 'Kill an enemy with "Bare hands".',
+        icon: '✋',
+        rarity: 'uncommon'
+    },
+    fan_hammer_melee: {
+        id: 'fan_hammer_melee',
+        name: 'Okay. seriously. HOW-',
+        description: 'Use fan the hammer with a melee weapon.',
+        icon: '🤯',
+        rarity: 'legendary'
+    },
+    use_flamethrower: {
+        id: 'use_flamethrower',
+        name: 'Arson',
+        description: 'Use the flamethrower.',
+        icon: '🔥',
+        rarity: 'common'
+    },
+    jackhammer_kill: {
+        id: 'jackhammer_kill',
+        name: 'RAAAA-',
+        description: 'Kill an enemy with the jackhammer.',
+        icon: '🔨',
+        rarity: 'uncommon'
+    },
+    friendly_fire: {
+        id: 'friendly_fire',
+        name: 'Friendly fire',
+        description: 'Cause a bloater to explode a fellow enemy.',
+        icon: '💣',
+        rarity: 'uncommon'
+    },
+    acid_kill: {
+        id: 'acid_kill',
+        name: 'Schloppity schlop',
+        description: 'Kill an enemy with acid.',
+        icon: '🧪',
+        rarity: 'common'
+    },
+    get_homing: {
+        id: 'get_homing',
+        name: 'Smarter',
+        description: 'Get homing bullets.',
+        icon: '🎯',
+        rarity: 'uncommon'
+    },
+    use_afterimage: {
+        id: 'use_afterimage',
+        name: 'Duplication',
+        description: 'Use afterimage.',
+        icon: '👻',
+        rarity: 'uncommon'
+    },
+    drift: {
+        id: 'drift',
+        name: 'VREEEEEE-',
+        description: 'Drift.',
+        icon: '🚗',
+        rarity: 'uncommon'
+    },
+    die_as_juggernaut: {
+        id: 'die_as_juggernaut',
+        name: 'Irony',
+        description: 'Die as the juggernaut.',
+        icon: '😔',
+        rarity: 'uncommon'
+    },
+    kill_juggernaut_as_juggernaut: {
+        id: 'kill_juggernaut_as_juggernaut',
+        name: 'Same same, but different.',
+        description: 'Kill the juggernaut enemy as the juggernaut class, or vice versa.',
+        icon: '🦏',
+        rarity: 'rare'
+    },
+    blood_drain_kill: {
+        id: 'blood_drain_kill',
+        name: 'Juice box',
+        description: 'Kill an enemy with Blood drain.',
+        icon: '🧃',
+        rarity: 'uncommon'
+    },
+    kill_titan_as_titan: {
+        id: 'kill_titan_as_titan',
+        name: 'Same same, actually wait-',
+        description: 'Kill the titan enemy as the titan class.',
+        icon: '🗿',
+        rarity: 'rare'
+    },
+    countersnipe: {
+        id: 'countersnipe',
+        name: 'Countersniped',
+        description: 'Kill the sniper enemy with the sniper weapon.',
+        icon: '🎯',
+        rarity: 'uncommon'
     }
 };
 
