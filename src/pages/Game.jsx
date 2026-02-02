@@ -2176,7 +2176,8 @@ export default function Game() {
             ctx.globalAlpha = 0.3;
             ctx.fillStyle = '#8844ff';
             ctx.beginPath();
-            ctx.arc(gw.x, gw.y, 300 * (1 - (now - (gw.endTime - 3000)) / 3000), 0, Math.PI * 2);
+            const gwRadius = Math.max(0, 300 * (1 - (now - (gw.endTime - 3000)) / 3000));
+            ctx.arc(gw.x, gw.y, gwRadius, 0, Math.PI * 2);
             ctx.fill();
             ctx.globalAlpha = 1;
         }
