@@ -371,6 +371,455 @@ export const ACHIEVEMENTS = {
         description: 'Kill the sniper enemy with the sniper weapon.',
         icon: '🎯',
         rarity: 'uncommon'
+    },
+
+    // === NEW KILL COUNT ACHIEVEMENTS ===
+    kill_100: {
+        id: 'kill_100',
+        name: 'Centurion',
+        description: 'Kill 100 enemies in a single run.',
+        icon: '💯',
+        rarity: 'uncommon'
+    },
+    kill_500: {
+        id: 'kill_500',
+        name: 'Annihilator',
+        description: 'Kill 500 enemies in a single run.',
+        icon: '☠️',
+        rarity: 'rare'
+    },
+    kill_1000: {
+        id: 'kill_1000',
+        name: 'Genocide',
+        description: 'Kill 1000 enemies in a single run.',
+        icon: '💀',
+        rarity: 'legendary'
+    },
+    kill_streak_10: {
+        id: 'kill_streak_10',
+        name: 'Rampage',
+        description: 'Kill 10 enemies within 3 seconds.',
+        icon: '🔥',
+        rarity: 'uncommon'
+    },
+    kill_streak_25: {
+        id: 'kill_streak_25',
+        name: 'UNSTOPPABLE',
+        description: 'Kill 25 enemies within 5 seconds.',
+        icon: '💥',
+        rarity: 'rare'
+    },
+
+    // === NEW WEAPON ACHIEVEMENTS ===
+    equip_scythe: {
+        id: 'equip_scythe',
+        name: 'Grim Reaper',
+        description: 'Equip the scythe.',
+        icon: '💀',
+        rarity: 'uncommon'
+    },
+    equip_warhammer: {
+        id: 'equip_warhammer',
+        name: 'BONK',
+        description: 'Equip the warhammer.',
+        icon: '🔨',
+        rarity: 'uncommon'
+    },
+    equip_golden_gun: {
+        id: 'equip_golden_gun',
+        name: 'Goldeneye',
+        description: 'Equip the golden gun.',
+        icon: '🔫',
+        rarity: 'legendary'
+    },
+    equip_annihilator: {
+        id: 'equip_annihilator',
+        name: 'DELETED',
+        description: 'Equip the annihilator.',
+        icon: '⚡',
+        rarity: 'legendary'
+    },
+    equip_rubber_chicken: {
+        id: 'equip_rubber_chicken',
+        name: 'Comedy Gold',
+        description: 'Equip the rubber chicken.',
+        icon: '🐔',
+        rarity: 'legendary'
+    },
+    equip_black_hole: {
+        id: 'equip_black_hole',
+        name: 'Event Horizon',
+        description: 'Equip the black hole gun.',
+        icon: '🕳️',
+        rarity: 'rare'
+    },
+    equip_infinity_blade: {
+        id: 'equip_infinity_blade',
+        name: 'Perfectly Balanced',
+        description: 'Equip the infinity blade.',
+        icon: '⚔️',
+        rarity: 'legendary'
+    },
+    equip_toilet_plunger: {
+        id: 'equip_toilet_plunger',
+        name: 'The Plumber',
+        description: 'Equip the toilet plunger.',
+        icon: '🪠',
+        rarity: 'rare'
+    },
+    equip_galaxy_gun: {
+        id: 'equip_galaxy_gun',
+        name: 'Star Lord',
+        description: 'Equip the galaxy gun.',
+        icon: '🌌',
+        rarity: 'legendary'
+    },
+
+    // === WAVE ACHIEVEMENTS ===
+    reach_wave_5: {
+        id: 'reach_wave_5',
+        name: 'Warming Up',
+        description: 'Reach wave 5.',
+        icon: '5️⃣',
+        rarity: 'common'
+    },
+    reach_wave_10: {
+        id: 'reach_wave_10',
+        name: 'Getting Serious',
+        description: 'Reach wave 10.',
+        icon: '🔟',
+        rarity: 'uncommon'
+    },
+    reach_wave_20: {
+        id: 'reach_wave_20',
+        name: 'Veteran',
+        description: 'Reach wave 20.',
+        icon: '⭐',
+        rarity: 'rare'
+    },
+    reach_wave_50: {
+        id: 'reach_wave_50',
+        name: 'Legend',
+        description: 'Reach wave 50.',
+        icon: '🏆',
+        rarity: 'legendary'
+    },
+
+    // === SURVIVAL ACHIEVEMENTS ===
+    no_damage_wave: {
+        id: 'no_damage_wave',
+        name: 'Untouchable',
+        description: 'Complete a wave without taking damage.',
+        icon: '🛡️',
+        rarity: 'uncommon'
+    },
+    no_damage_5_waves: {
+        id: 'no_damage_5_waves',
+        name: 'Ghost',
+        description: 'Complete 5 waves in a row without taking damage.',
+        icon: '👻',
+        rarity: 'legendary'
+    },
+    survive_10min: {
+        id: 'survive_10min',
+        name: 'Marathon Runner',
+        description: 'Survive in a wave for longer than 10 minutes.',
+        icon: '🏃',
+        rarity: 'legendary'
+    },
+    clutch_kill: {
+        id: 'clutch_kill',
+        name: 'Clutch Master',
+        description: 'Kill the last enemy with less than 5 HP.',
+        icon: '😅',
+        rarity: 'rare'
+    },
+
+    // === DEATH ACHIEVEMENTS ===
+    ten_deaths: {
+        id: 'ten_deaths',
+        name: 'Persistence',
+        description: 'Die 10 times.',
+        icon: '💪',
+        rarity: 'uncommon'
+    },
+    fifty_deaths: {
+        id: 'fifty_deaths',
+        name: 'Determination',
+        description: 'Die 50 times.',
+        icon: '🔄',
+        rarity: 'rare'
+    },
+    hundred_deaths: {
+        id: 'hundred_deaths',
+        name: 'Immortal Spirit',
+        description: 'Die 100 times. You never give up.',
+        icon: '♾️',
+        rarity: 'legendary'
+    },
+    die_instantly: {
+        id: 'die_instantly',
+        name: 'Speedrun',
+        description: 'Die within 5 seconds of starting.',
+        icon: '⏱️',
+        rarity: 'uncommon'
+    },
+    die_to_own_explosion: {
+        id: 'die_to_own_explosion',
+        name: 'Friendly Fire',
+        description: 'Kill yourself with your own explosive.',
+        icon: '💣',
+        rarity: 'uncommon'
+    },
+
+    // === COMBO ACHIEVEMENTS ===
+    melee_only_wave: {
+        id: 'melee_only_wave',
+        name: 'Close Quarters',
+        description: 'Complete a wave using only melee weapons.',
+        icon: '⚔️',
+        rarity: 'rare'
+    },
+    explosive_only_wave: {
+        id: 'explosive_only_wave',
+        name: 'Demolition Expert',
+        description: 'Complete a wave using only explosives.',
+        icon: '💥',
+        rarity: 'rare'
+    },
+    pistol_only_wave: {
+        id: 'pistol_only_wave',
+        name: 'Old School',
+        description: 'Complete wave 5+ using only the pistol.',
+        icon: '🔫',
+        rarity: 'rare'
+    },
+
+    // === GEAR ACHIEVEMENTS ===
+    max_speed: {
+        id: 'max_speed',
+        name: 'Gotta Go Fast',
+        description: 'Stack 3+ speed upgrades.',
+        icon: '💨',
+        rarity: 'uncommon'
+    },
+    full_build: {
+        id: 'full_build',
+        name: 'Fully Loaded',
+        description: 'Have 10+ gear items equipped.',
+        icon: '🎒',
+        rarity: 'rare'
+    },
+    glass_cannon: {
+        id: 'glass_cannon',
+        name: 'Glass Cannon',
+        description: 'Have max damage but less than 50 HP.',
+        icon: '🔮',
+        rarity: 'rare'
+    },
+    tank_build: {
+        id: 'tank_build',
+        name: 'Walking Fortress',
+        description: 'Have 300+ max HP.',
+        icon: '🏰',
+        rarity: 'rare'
+    },
+
+    // === ENEMY ACHIEVEMENTS ===
+    kill_boss: {
+        id: 'kill_boss',
+        name: 'Boss Slayer',
+        description: 'Kill any boss enemy.',
+        icon: '👑',
+        rarity: 'uncommon'
+    },
+    kill_50_bosses: {
+        id: 'kill_50_bosses',
+        name: 'Boss Hunter',
+        description: 'Kill 50 boss enemies total.',
+        icon: '🎖️',
+        rarity: 'rare'
+    },
+    kill_bloater_chain: {
+        id: 'kill_bloater_chain',
+        name: 'Chain Reaction',
+        description: 'Cause 3 bloaters to explode from one explosion.',
+        icon: '💥',
+        rarity: 'rare'
+    },
+    encounter_all_enemies: {
+        id: 'encounter_all_enemies',
+        name: 'Bestiary Complete',
+        description: 'Encounter every enemy type.',
+        icon: '📖',
+        rarity: 'legendary'
+    },
+
+    // === MISC ACHIEVEMENTS ===
+    shop_skip: {
+        id: 'shop_skip',
+        name: 'No Thanks',
+        description: 'Skip the shop without buying anything.',
+        icon: '🚫',
+        rarity: 'common'
+    },
+    spend_10000: {
+        id: 'spend_10000',
+        name: 'Big Spender',
+        description: 'Spend 10000 gold in one run.',
+        icon: '💰',
+        rarity: 'rare'
+    },
+    reroll_10: {
+        id: 'reroll_10',
+        name: 'Picky',
+        description: 'Reroll shop items 10 times in one run.',
+        icon: '🎲',
+        rarity: 'uncommon'
+    },
+    lightning_kill_5: {
+        id: 'lightning_kill_5',
+        name: 'Zeus',
+        description: 'Kill 5 enemies with one lightning chain.',
+        icon: '⚡',
+        rarity: 'rare'
+    },
+    freeze_10: {
+        id: 'freeze_10',
+        name: 'Ice Age',
+        description: 'Have 10 enemies frozen at once.',
+        icon: '❄️',
+        rarity: 'uncommon'
+    },
+    overkill: {
+        id: 'overkill',
+        name: 'Overkill',
+        description: 'Deal 10x an enemy\'s HP in one hit.',
+        icon: '💢',
+        rarity: 'uncommon'
+    },
+    pacifist: {
+        id: 'pacifist',
+        name: 'Pacifist',
+        description: 'Survive 30 seconds without killing anything.',
+        icon: '☮️',
+        rarity: 'rare'
+    },
+    speed_demon: {
+        id: 'speed_demon',
+        name: 'Speed Demon',
+        description: 'Move at 500% speed or more.',
+        icon: '👹',
+        rarity: 'rare'
+    },
+    richochet_kill: {
+        id: 'richochet_kill',
+        name: 'Calculated',
+        description: 'Kill an enemy with a ricocheted bullet.',
+        icon: '🎱',
+        rarity: 'uncommon'
+    },
+    behind_you: {
+        id: 'behind_you',
+        name: 'Nothing Personnel',
+        description: 'Kill an enemy from behind with backstab.',
+        icon: '🗡️',
+        rarity: 'uncommon'
+    },
+    whip_it_good: {
+        id: 'whip_it_good',
+        name: 'Whip It Good',
+        description: 'Get 50 kills with the whip.',
+        icon: '🦹',
+        rarity: 'rare'
+    },
+    nunchuck_master: {
+        id: 'nunchuck_master',
+        name: 'Nunchuck Master',
+        description: 'Complete a full combo with nunchucks.',
+        icon: '🥋',
+        rarity: 'uncommon'
+    },
+    black_hole_suck: {
+        id: 'black_hole_suck',
+        name: 'Into the Void',
+        description: 'Pull 10 enemies with one black hole.',
+        icon: '🌀',
+        rarity: 'rare'
+    },
+    boomerang_catch: {
+        id: 'boomerang_catch',
+        name: 'Catch!',
+        description: 'Hit the same enemy twice with one boomerang.',
+        icon: '🪃',
+        rarity: 'uncommon'
+    },
+
+    // === NEW ENEMY ACHIEVEMENTS ===
+    encounter_c4: {
+        id: 'encounter_c4',
+        name: 'BOMB HAS BEEN PLANTED',
+        description: 'Encounter the C4 enemy.',
+        icon: '💣',
+        rarity: 'uncommon'
+    },
+    encounter_bacteria: {
+        id: 'encounter_bacteria',
+        name: 'Infection',
+        description: 'Encounter the bacteria enemy.',
+        icon: '🦠',
+        rarity: 'uncommon'
+    },
+    encounter_virus: {
+        id: 'encounter_virus',
+        name: 'Pandemic',
+        description: 'Encounter the virus enemy.',
+        icon: '🧬',
+        rarity: 'rare'
+    },
+    encounter_imploder: {
+        id: 'encounter_imploder',
+        name: 'Implosion',
+        description: 'Encounter the imploder enemy.',
+        icon: '🌀',
+        rarity: 'uncommon'
+    },
+    encounter_plague: {
+        id: 'encounter_plague',
+        name: 'The End Times',
+        description: 'Encounter the plague enemy. Good luck.',
+        icon: '☠️',
+        rarity: 'legendary'
+    },
+
+    // === NEW WEAPON ACHIEVEMENTS ===
+    equip_holy_grenade: {
+        id: 'equip_holy_grenade',
+        name: 'One... Two... FIVE!',
+        description: 'Equip the Holy Hand Grenade.',
+        icon: '✝️',
+        rarity: 'legendary'
+    },
+    equip_neptunes_rain: {
+        id: 'equip_neptunes_rain',
+        name: 'DIAMONDS',
+        description: 'Equip Neptune\'s Rain.',
+        icon: '💎',
+        rarity: 'legendary'
+    },
+    equip_bomb_knife: {
+        id: 'equip_bomb_knife',
+        name: 'Surprise!',
+        description: 'Equip the bomb knife.',
+        icon: '🔪',
+        rarity: 'uncommon'
+    },
+    equip_toxin_jar: {
+        id: 'equip_toxin_jar',
+        name: 'Why did they get this?',
+        description: 'Equip the toxin gas jar.',
+        icon: '🫙',
+        rarity: 'rare'
     }
 };
 

@@ -323,7 +323,14 @@ export default function Game() {
             parasite: { health: 22, speed: 2.0, damage: 4, size: 15, color: '#884400', points: 18, shootsParasite: true },
             sticky: { health: 30, speed: 1.3, damage: 3, size: 19, color: '#aaaa00', points: 20, shootsGlue: true },
             sticker: { health: 18, speed: 2.8, damage: 2, size: 14, color: '#cccc44', points: 16, isSticker: true },
-            sticky_grenade: { health: 20, speed: 2.5, damage: 15, size: 16, color: '#dddd00', points: 25, isSticker: true, explodesWhenAttached: true }
+            sticky_grenade: { health: 20, speed: 2.5, damage: 15, size: 16, color: '#dddd00', points: 25, isSticker: true, explodesWhenAttached: true },
+
+            // === NEW REQUESTED ENEMIES ===
+            c4: { health: 80, speed: 1.8, damage: 30, size: 32, color: '#444444', points: 45, isC4: true, explodes: true, fuseTime: 999, c4Timer: 3 },
+            bacteria: { health: 35, speed: 1.6, damage: 4, size: 17, color: '#66ff66', points: 30, isDuplicator: true, splitCount: 0, maxSplits: 4, cloudShooter: true },
+            virus: { health: 30, speed: 2.0, damage: 5, size: 16, color: '#ff66ff', points: 35, isDuplicator: true, splitCount: 0, maxSplits: 5, cloudShooter: true, tripleCloud: true },
+            imploder: { health: 50, speed: 1.5, damage: 8, size: 24, color: '#0044aa', points: 40, isImploder: true },
+            plague: { health: 60, speed: 1.4, damage: 6, size: 22, color: '#440044', points: 80, isDuplicator: true, splitCount: 0, maxSplits: 6, cloudShooter: true, tripleCloud: true, isImploder: true, isPlagueEnemy: true }
         };
 
         const config = enemyConfigs[type];
@@ -400,7 +407,14 @@ export default function Game() {
             isSticker: config.isSticker,
             explodesWhenAttached: config.explodesWhenAttached,
             attachedToPlayer: false,
-            attachTime: 0
+            attachTime: 0,
+            // New enemy properties
+            isC4: config.isC4,
+            c4Timer: config.c4Timer,
+            c4Activated: false,
+            c4ActivationTime: 0,
+            isImploder: config.isImploder,
+            isPlagueEnemy: config.isPlagueEnemy
         };
 
         // Achievement tracking for enemy encounters
@@ -428,6 +442,22 @@ export default function Game() {
             }
             if (type === 'boss_hivemind') {
                 unlockAchievementRef.current('encounter_hivemind');
+            }
+            // New enemy encounter achievements
+            if (type === 'c4') {
+                unlockAchievementRef.current('encounter_c4');
+            }
+            if (type === 'bacteria') {
+                unlockAchievementRef.current('encounter_bacteria');
+            }
+            if (type === 'virus') {
+                unlockAchievementRef.current('encounter_virus');
+            }
+            if (type === 'imploder') {
+                unlockAchievementRef.current('encounter_imploder');
+            }
+            if (type === 'plague') {
+                unlockAchievementRef.current('encounter_plague');
             }
         }
 
@@ -4336,6 +4366,28 @@ export default function Game() {
                                 player.quickstepUntil = now + 1000;
                             }
 
+                            // Imploder: releases shambler particles on death
+                            if (e.isImploder) {
+                                const particleCount = e.isPlagueEnemy ? 12 : 8;
+                                for (let p = 0; p < particleCount; p++) {
+                                    const angle = (Math.PI * 2 / particleCount) * p + Math.random() * 0.3;
+                                    gs.bullets.push({
+                                        x: e.x,
+                                        y: e.y,
+                                        vx: Math.cos(angle) * 3,
+                                        vy: Math.sin(angle) * 3,
+                                        damage: e.damage * 0.5,
+                                        isEnemy: true,
+                                        piercing: 0,
+                                        size: 15,
+                                        color: e.isPlagueEnemy ? '#440044' : '#8888ff',
+                                        isCloud: true,
+                                        lifetime: 180
+                                    });
+                                }
+                                createParticles(e.x, e.y, '#8888ff', 20, 8);
+                            }
+
                             enemies.splice(j, 1);
                         }
 
@@ -4713,6 +4765,28 @@ export default function Game() {
                         player.health = Math.min(player.maxHealth, player.health + player.adrenalineHeal);
                     }
 
+                    // Imploder: releases shambler particles on death
+                    if (e.isImploder) {
+                        const particleCount = e.isPlagueEnemy ? 12 : 8;
+                        for (let p = 0; p < particleCount; p++) {
+                            const angle = (Math.PI * 2 / particleCount) * p + Math.random() * 0.3;
+                            gs.bullets.push({
+                                x: e.x,
+                                y: e.y,
+                                vx: Math.cos(angle) * 3,
+                                vy: Math.sin(angle) * 3,
+                                damage: e.damage * 0.5,
+                                isEnemy: true,
+                                piercing: 0,
+                                size: 15,
+                                color: e.isPlagueEnemy ? '#440044' : '#8888ff',
+                                isCloud: true,
+                                lifetime: 180
+                            });
+                        }
+                        createParticles(e.x, e.y, '#8888ff', 20, 8);
+                    }
+
                     enemies.splice(j, 1);
                 }
 
@@ -4844,17 +4918,22 @@ export default function Game() {
                             size: Math.max(10, e.size * 0.75),
                             color: e.color,
                             points: Math.floor(e.points * 0.5),
-                            type: 'duplicator',
+                            type: e.type,
                             isDuplicator: true,
                             splitCount: e.splitCount + 1,
                             maxSplits: e.maxSplits,
                             lastShot: 0,
                             lastMeleeHit: 0,
                             hitFlash: 0,
-                            spawnTime: now
+                            spawnTime: now,
+                            // Preserve special properties for bacteria/virus/plague
+                            cloudShooter: e.cloudShooter,
+                            tripleCloud: e.tripleCloud,
+                            isImploder: e.isImploder,
+                            isPlagueEnemy: e.isPlagueEnemy
                         });
                     }
-                    createParticles(e.x, e.y, '#ff88ff', 15, 6);
+                    createParticles(e.x, e.y, e.color, 15, 6);
                 }
 
                 // Tumor cell death - heals other tumor cells
@@ -4870,6 +4949,28 @@ export default function Game() {
                 // Remove sticker from player count
                 if (e.attachedToPlayer && player.stickersAttached) {
                     player.stickersAttached = Math.max(0, player.stickersAttached - 1);
+                }
+
+                // Imploder: releases shambler particles on death
+                if (e.isImploder) {
+                    const particleCount = e.isPlagueEnemy ? 12 : 8;
+                    for (let p = 0; p < particleCount; p++) {
+                        const angle = (Math.PI * 2 / particleCount) * p + Math.random() * 0.3;
+                        gs.bullets.push({
+                            x: e.x,
+                            y: e.y,
+                            vx: Math.cos(angle) * 3,
+                            vy: Math.sin(angle) * 3,
+                            damage: e.damage * 0.5,
+                            isEnemy: true,
+                            piercing: 0,
+                            size: 15,
+                            color: e.isPlagueEnemy ? '#440044' : '#8888ff',
+                            isCloud: true,
+                            lifetime: 180
+                        });
+                    }
+                    createParticles(e.x, e.y, '#8888ff', 20, 8);
                 }
 
                 enemies.splice(i, 1);
@@ -4954,21 +5055,21 @@ export default function Game() {
                 }
             }
 
+            // Target decoy if player is invisible, or random spot if blind cheat is on
+            let target;
+            if (blindEnemies) {
+                target = { x: canvas.width / 2, y: canvas.height / 2 };
+            } else if (isInvisible && gs.decoy) {
+                target = gs.decoy;
+            } else {
+                target = player;
+            }
+
             // Check if stunned
             if (e.stunned && now < e.stunEndTime) {
                 // Don't move, skip to rendering
             } else {
                 e.stunned = false;
-
-                // Target decoy if player is invisible, or random spot if blind cheat is on
-                let target;
-                if (blindEnemies) {
-                    target = { x: canvas.width / 2, y: canvas.height / 2 };
-                } else if (isInvisible && gs.decoy) {
-                    target = gs.decoy;
-                } else {
-                    target = player;
-                }
                 
                 // Dasher logic
                 if (e.dashes) {
@@ -4999,10 +5100,36 @@ export default function Game() {
                 }
             }
 
+            // C4 enemy - activates timer when near player
+            if (e.isC4) {
+                const distToPlayer = Math.hypot(player.x - e.x, player.y - e.y);
+                if (!e.c4Activated && distToPlayer < 100) {
+                    e.c4Activated = true;
+                    e.c4ActivationTime = now;
+                    e.fuseTime = e.c4Timer; // Set actual fuse time
+                    e.spawnTime = now; // Reset spawn time for explosion timer
+                    createParticles(e.x, e.y, '#ff0000', 15, 5);
+                    sfxRef.current?.danger();
+                }
+                // Flash red when activated
+                if (e.c4Activated) {
+                    const timeLeft = e.c4Timer - (now - e.c4ActivationTime) / 1000;
+                    if (Math.floor(timeLeft * 4) % 2 === 0) {
+                        e.color = '#ff0000';
+                    } else {
+                        e.color = '#444444';
+                    }
+                }
+            }
+
             // Bloater/Nuke explosion timer
             if (e.explodes) {
-                const timeSinceSpawn = (now - e.spawnTime) / 1000;
-                const timeLeft = e.fuseTime - timeSinceSpawn;
+                // Skip explosion for C4 that hasn't been activated yet
+                if (e.isC4 && !e.c4Activated) {
+                    // Do nothing, wait for activation
+                } else {
+                    const timeSinceSpawn = (now - e.spawnTime) / 1000;
+                    const timeLeft = e.fuseTime - timeSinceSpawn;
 
                 // Nuke dash attack before explosion
                 if (e.bigExplosion && timeLeft < 0.8 && timeLeft > 0 && !e.finalDash) {
@@ -5115,6 +5242,7 @@ export default function Game() {
                     enemies.splice(i, 1);
                     continue;
                 }
+                }
             }
 
             // Shooting enemies
@@ -5123,7 +5251,7 @@ export default function Game() {
                 const shootCooldown = e.sniperShot ? 4000 : (e.rapidFire ? 400 : 2000);
                 if (now - e.lastShot > shootCooldown) {
                     e.lastShot = now;
-                    const angle = Math.atan2(player.y - e.y, player.x - e.x);
+                    const angle = Math.atan2(target.y - e.y, target.x - e.x);
                     const speed = e.sniperShot ? 15 : 8;
                     const damage = e.sniperShot ? e.damage * 1.5 : (e.rapidFire ? e.damage * 0.5 : e.damage);
                     const bulletSize = e.sniperShot ? 8 : 6;
@@ -5151,8 +5279,8 @@ export default function Game() {
                 gs.bullets.push({
                     x: e.x,
                     y: e.y,
-                    targetX: player.x,
-                    targetY: player.y,
+                    targetX: target.x,
+                    targetY: target.y,
                     vx: 0,
                     vy: 0,
                     damage: e.damage,
@@ -5171,7 +5299,7 @@ export default function Game() {
             // Cloud shooter (Shambler, Toxin)
             if (e.cloudShooter && now - e.lastShot > (e.megaCloud ? 2000 : (e.tripleCloud ? 2500 : 3000))) {
                 e.lastShot = now;
-                const angle = Math.atan2(player.y - e.y, player.x - e.x);
+                const angle = Math.atan2(target.y - e.y, target.x - e.x);
                 const cloudCount = e.megaCloud ? 5 : (e.tripleCloud ? 3 : 1);
                 for (let c = 0; c < cloudCount; c++) {
                     const spreadAngle = angle + (c - Math.floor(cloudCount / 2)) * 0.4;
@@ -5196,7 +5324,7 @@ export default function Game() {
             // Boss Spitter - creates acid pools on hit location
             if (e.createsAcidPools && e.shoots && now - (e.lastAcidPool || 0) > 4000) {
                 e.lastAcidPool = now;
-                const angle = Math.atan2(player.y - e.y, player.x - e.x);
+                const angle = Math.atan2(target.y - e.y, target.x - e.x);
                 for (let a = 0; a < 3; a++) {
                     const spreadAngle = angle + (a - 1) * 0.4;
                     gs.bullets.push({
@@ -5327,12 +5455,16 @@ export default function Game() {
                 // Charge indicator
                 e.charging = true;
                 e.chargeUntil = now + 1500;
+                // Capture target at time of shot for delayed firing
+                const capturedTarget = { x: target.x, y: target.y };
                 setTimeout(() => {
                     if (e.health > 0) {
                         for (let s = 0; s < 3; s++) {
                             setTimeout(() => {
                                 if (e.health > 0) {
-                                    const angle = Math.atan2(player.y - e.y, player.x - e.x);
+                                    // Re-check decoy status for delayed shots
+                                    const currentTarget = (isInvisible && gs.decoy) ? gs.decoy : player;
+                                    const angle = Math.atan2(currentTarget.y - e.y, currentTarget.x - e.x);
                                     gs.bullets.push({
                                         x: e.x,
                                         y: e.y,
@@ -5357,7 +5489,7 @@ export default function Game() {
             // Boss Lightning - chain lightning attack
             if (e.lightningAttack && now - (e.lastLightning || 0) > 3000) {
                 e.lastLightning = now;
-                const angle = Math.atan2(player.y - e.y, player.x - e.x);
+                const angle = Math.atan2(target.y - e.y, target.x - e.x);
                 gs.bullets.push({
                     x: e.x,
                     y: e.y,
@@ -5379,7 +5511,7 @@ export default function Game() {
             // Boss Frost - freeze attack and frost aura
             if (e.freezeAttack && now - (e.lastFreeze || 0) > 2500) {
                 e.lastFreeze = now;
-                const angle = Math.atan2(player.y - e.y, player.x - e.x);
+                const angle = Math.atan2(target.y - e.y, target.x - e.x);
                 for (let f = 0; f < 3; f++) {
                     const frostAngle = angle + (f - 1) * 0.3;
                     gs.bullets.push({
@@ -5548,7 +5680,7 @@ export default function Game() {
             // Corrosive - shoots fast DOT projectiles
             if (e.corrosiveShot && now - e.lastShot > 2000) {
                 e.lastShot = now;
-                const angle = Math.atan2(player.y - e.y, player.x - e.x);
+                const angle = Math.atan2(target.y - e.y, target.x - e.x);
                 gs.bullets.push({
                     x: e.x,
                     y: e.y,
@@ -5568,7 +5700,7 @@ export default function Game() {
             // Parasite - shoots seeking projectile
             if (e.shootsParasite && now - e.lastShot > 3500) {
                 e.lastShot = now;
-                const angle = Math.atan2(player.y - e.y, player.x - e.x);
+                const angle = Math.atan2(target.y - e.y, target.x - e.x);
                 gs.bullets.push({
                     x: e.x,
                     y: e.y,
@@ -5590,7 +5722,7 @@ export default function Game() {
             // Sticky - shoots glue traps
             if (e.shootsGlue && now - e.lastShot > 4000) {
                 e.lastShot = now;
-                const angle = Math.atan2(player.y - e.y, player.x - e.x);
+                const angle = Math.atan2(target.y - e.y, target.x - e.x);
                 gs.bullets.push({
                     x: e.x,
                     y: e.y,
